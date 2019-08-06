@@ -1,0 +1,13 @@
+---
+- name : List summary of existing buckets in OCI object storage
+  connection: local
+  hosts: localhost
+  tasks:
+    - name: List bucket facts
+      oci_bucket_facts:
+         namespace_name: '<yournamespace>'
+         compartment_id: '<yourcompartmentocid>'
+      register: result
+    - name: Dump result
+      debug: 
+        msg: '{{result}}'
