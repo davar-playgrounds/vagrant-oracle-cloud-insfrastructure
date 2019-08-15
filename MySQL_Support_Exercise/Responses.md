@@ -38,7 +38,7 @@
 								1. Set the value of enrollment_flags of the current row to NULL.
 				1. When the enrollment_flags column is NULL in every row of the enrollment table, remove the enrollment_flags column from the enrollment table.
 				1. Make the following changes to the SELECT:
-					1. Replace e.enrollment_flags with ef.enrollment_flags
+					1. Replace `e.enrollment_flags` with `ef.enrollment_flags`
 					1. Append to the FROM: `INNER JOIN enrollment_flags ef ON e.enrollment_id = ef.enrollment_id`
 					1. Delete from the WHERE: `AND FIND_IN_SET('F', e.enrollment_flags) != 0`
 					1. Append to the WHERE: `AND ef.F = TRUE`
