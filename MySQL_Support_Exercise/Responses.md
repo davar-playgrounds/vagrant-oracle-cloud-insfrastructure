@@ -172,7 +172,7 @@
 		
 		```sql
 		
-		-- mu_fetch( muser_group INT, mdata VARCHAR(30) )
+		-- mu_fetch( in_muser_group INT, mdata VARCHAR(30) )
 		-- If mdata is provided, return results for the mu_ table with that suffix
 		-- Otherwise, retrieve muser_data from musers for all users that
 		-- belong to the specified muser_group.
