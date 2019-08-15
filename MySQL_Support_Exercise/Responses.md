@@ -153,7 +153,7 @@
 		1. query_cache_type is set to ON, and query_cache_size to 104857600 i.e 100 megabytes. Meanwhile, MySQL has made a write for every six reads ( 78293 (Com_insert) +23923 (Com_update) + 378232 (Com_delete) / 2783289 (Com_select) ) . Each write of a table invalidates the query cache for ALL queries cached for that table; so, a frequently updated table doesn't benefit from the query cache. Query cache costs around 10% to 15% in overhead, and the query cache hit rate percentage ((Qcache_hits / (Qcache_hits + Qcache_inserts + Qcache_not_cached)) * 100) is 0.0004%; thus,  use of query cache is a net loss. Consider setting both query_cache_type and query_cache_size to 0 (requires a restart of mysqld) until/unless Qcache_lowmem_prunes grows large. Also, Connections/Uptime is 6734354/405423 i.e. sixteen connections per second; so, if there were many processor cores, there would be potential for contention for the query cache which if extant would make the query cache a bottleneck. That is almost certainly not true for the system under observation: version_compile_machine is powerpc, and version_compile_os is apple-darwin8.6.0; so, the system is likely an Apple Power Mac with two or fewer cores; and hence, there can be no such contention; however, if the system were ported to a machine with many cores, the potential for contention for the query cache would be a consideration.
 		1. Sort_merge_passes is 38291. Consider increasing the value of sort_buffer_size, which is 65536 as compared to the default 2097144. Else, sorting rows can be slower than expected because data is from disk rather than memory.
 
-1. "User Data (identifier), or Cities or People or Vehicles" | 210 minutes 
+1. "User Data (identifier), or Cities or People or Vehicles" | 225 minutes 
 	1. The errors are:
 		1. No DELIMITER 
 			1. No DELIMITER is declared to delimit statements that affect the procedure at the scope at which the procudure is created, e.g. to delimit the final END statement of the creation of the procedure. Such a delimiter is necessary in order that MySQL can distinguish statements that are at the level/scope of the exterior of the procedure from those that are within the procedure, which are delimited by the semicolon. 
@@ -168,38 +168,38 @@
 		8. The END IF that closes the "IF NOT done..." and the one that closes the "IF mdata <>...'' statement are both missing the semicolon as delimiter at the end of the line.
 		9. The "CLOSE cr;" statement is outside the ELSE of the "IF mdata <>..." statement, and belongs inside it.
 		
-		**The corrected procedure is**:
+	1. The corrected procedure is:
 		
-			```sql
-			DELIMITER $$
-			DROP PROCEDURE IF EXISTS mu_fetch$$
-			CREATE PROCEDURE mu_fetch( in_muser_group INT, mdata VARCHAR(30) )
-			BEGIN
-				DECLARE done INT DEFAULT 0;
-				DECLARE psql VARCHAR(200);
-				DECLARE cr CURSOR FOR 
-					SELECT muser_data FROM musers 
-						WHERE muser_group = in_muser_group;
-				DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done=1;
-				IF mdata <> '' THEN
-					SET @psql= CONCAT('SELECT * FROM mu_', mdata);
-					PREPARE stmt FROM @psql;
-					EXECUTE stmt;
+		```sql
+		DELIMITER $$
+		DROP PROCEDURE IF EXISTS mu_fetch$$
+		CREATE PROCEDURE mu_fetch( in_muser_group INT, mdata VARCHAR(30) )
+		BEGIN
+			DECLARE done INT DEFAULT 0;
+			DECLARE psql VARCHAR(200);
+			DECLARE cr CURSOR FOR 
+				SELECT muser_data FROM musers 
+					WHERE muser_group = in_muser_group;
+			DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done=1;
+			IF mdata <> '' THEN
+				SET @psql= CONCAT('SELECT * FROM mu_', mdata);
+				PREPARE stmt FROM @psql;
+				EXECUTE stmt;
+				DEALLOCATE PREPARE stmt;
+			ELSE
+				OPEN cr;
+				REPEAT
+					FETCH cr INTO mdata;
+					IF NOT done THEN
+					SET @psql= CONCAT('SELECT muser_data FROM musers WHERE muser_group = ', mdata);
+						PREPARE stmt FROM @psql;
+						EXECUTE stmt;
 					DEALLOCATE PREPARE stmt;
-				ELSE
-					OPEN cr;
-					REPEAT
-						FETCH cr INTO mdata;
-						IF NOT done THEN
-						SET @psql= CONCAT('SELECT muser_data FROM musers WHERE muser_group = ', mdata);
-							PREPARE stmt FROM @psql;
-							EXECUTE stmt;
-						DEALLOCATE PREPARE stmt;
-						END IF;
-					UNTIL done
-					END REPEAT;
-					CLOSE cr;
-				END IF;
-			END$$
-			```
+					END IF;
+				UNTIL done
+				END REPEAT;
+				CLOSE cr;
+			END IF;
+		END$$
+		```
 	
