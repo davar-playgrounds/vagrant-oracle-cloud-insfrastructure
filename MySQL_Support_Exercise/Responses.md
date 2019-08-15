@@ -9,7 +9,7 @@
 	
 	1. A possible solution is: Wrap 37040 in single quotes in the query, like `EXPLAIN SELECT city FROM citycodes WHERE code = '37040'\G`. That way, 37040 would be passed as a string rather than as an integer, and MySQL would use the "idx_code" index to speed the query.
 	
-1. "Attendance" | 180 minutes 
+1. "Attendance" | 200 minutes 
 	1. Changes that may bring performance improvements are:
 		1. Add a composite index to the enrsec table so MySQL does not read all of its 268959744 rows. Put the columns of the composite index in the order in which they are JOINed by the query: `ALTER TABLE enrsec ADD INDEX(enrollment_id, course_no, section_no);`.
 		1. Make FIND_IN_SET unnecessary and remove it from the SELECT so MySQL does not read all 262656 rows of the enrollment table:
@@ -26,11 +26,13 @@
 					
 				1. Move the flags from the enrollments table to the enrollment_flags table: 
 					1. For each row in the enrollments table: 
-						1. Create a corresponding row in the enrollments_flag table. 
+						1. For each flag in the comma-separated list in the enrollment_flags column of the current row:
+						    1. If there is no column named for the flag, in the enrollment_flags _table_; e.g. for a flag 'F', a column named F, in the enrollment_flags _table_:
+								1. Create a column named for the flag, in the enrollments_flags _table_; e.g. for a flag 'F', create a column enrollment_flags.F.	
+						1. Create a corresponding row in the enrollment_flags table.	
 						1. Set enrollment_flags.enrollment_id of the corresponding row to the value of enrollment.enrollment_id of the current row.
-						2. For each flag in the comma-separated list in the enrollment_flags column of the current row:
-							1. Create a corresponding row in the enrollment_flags table, named for the flag.	
-							1. Set the value of the respective (named for the flag) column in the corresponding row in the enrollment_flags table to TRUE.
+						1. For each flag in the comma-separated list in the enrollment_flags column of the current row:
+							1. Set the value of the respective (named for the flag) column in the corresponding row in the enrollment_flags table to TRUE; e.g. for 'F' set enrollment_flags.F to 1 in the corresponding row.
 							1. Remove the flag from the comma-separated list.  
 							1. If the flag is the last of the comma-separated values:
 								1. Set the value of enrollment_flags of the current row to NULL.
