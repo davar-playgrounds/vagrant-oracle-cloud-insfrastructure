@@ -107,7 +107,7 @@
 			section.sec_id= clsenr.sec_id
 		WHERE
 			inprog.syear= 2007
-			AND inprog.sch$_id= 1473;
+		AND inprog.sch_id= 1473;
 		```
   
 1. "Global Variables & Status" | **rough draft** | 240 minutes 
