@@ -210,7 +210,7 @@
 			END IF;
 		END$$
 		```
-1. "Users at Host with C Lang" | 240 minutes
+1. "Users at Host with C Lang" | 280 minutes
 	1. The problems with the C program, and the respective solutions, are:
 		1. The MySQL API header is not included; so, the API is not available.
 			1. Problem: mysql.h is not among the headers included.
