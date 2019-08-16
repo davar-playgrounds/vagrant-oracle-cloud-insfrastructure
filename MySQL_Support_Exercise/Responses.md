@@ -272,6 +272,34 @@
 				mysql_real_connect(m,"localhost","root","password-of-mysql-root-user","test",0,NULL,0);
 				```
 
+		1. The "database" parameter is set to a database that does not exist.
+			1. Problem: The "database" parameter is set to "test", a database that does not exist, in the call of mysql_real_connect(); so, the connection attempt fails.
+			1. Solution: Replace "test" with NULL in the call of mysql_real_connect(), thereby changing 
+
+				```c
+				mysql_real_connect(m,"localhost","root","password-of-mysql-root-user","test",0,NULL,0);
+				```
+
+				to like
+
+				```c
+				mysql_real_connect(m,"localhost","root","password-of-mysql-root-user",NULL,0,NULL,0);
+				```
+
+	 	1. The while loop doesn't fetch the rows that result from the regular execution of sql1
+			1. Problem: The call of mysql_fetch_row() in the condition of the while loop that would print the values from the results of the regular execution of the query in sql1 is missing the "MYSQL_RES *result" parameter.
+			1. Solution: Insert the parameter by replacing 
+
+				```c
+				while (w= mysql_fetch_row)
+				```
+
+				with
+
+				```c
+				while ((w = mysql_fetch_row(r)))
+				```
+
 		1. The statement "s" is not initialized before it is prepared.
 			1. Problem: mysql_stmt_prepare() is called with s as a parameter before the pointer s has been initialized to a prepared statement handler by the mysql_stmt_init() function.
 			1. Solution: Initialize s, by preceding 
@@ -335,22 +363,16 @@
 				res[1].buffer= &sd[2] //pointer to sd[2]
 				```
 
-	 	1. The while loop doesn't fetch the results	
-			1. Problem: The condition of the while loop that would print the values from the results of the execution of the prepared statement does not fetch values from the results bound to the statement.
+	 	1. The while loop doesn't fetch the results of the execution of the prepared statement for sql2
+			1. Problem: The condition of the while loop that would print the values from the results of the execution of the prepared statement for sql2 does not fetch values from the results bound to the statement.
 			1. Solution: Replace
 
 				```c
 				while(w= mysql_fetch_row(r))
-				{
-					printf("%s@%s\n", sd[1], sd[2]);
-				}
 				```
 
 				with
 
 				```c
 				while (!mysql_stmt_fetch(s))
-				{
-					printf("%s@%s\n", sd[1], sd[2]);
-				}
 				```
