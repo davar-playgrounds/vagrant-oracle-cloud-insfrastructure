@@ -210,4 +210,147 @@
 			END IF;
 		END$$
 		```
-	
+1. "Users at Host with C Lang" | 240 minutes
+	1. The problems with the C program, and the respective solutions, are:
+		1. The MySQL API header is not included; so, the API is not available.
+			1. Problem: mysql.h is not among the headers included.
+			1. Solution: Append 
+			
+				```c
+				#include <mysql.h>
+				```
+
+				to
+
+				```c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <string.h>
+				```
+
+				like
+
+				```c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <string.h>
+				#include <mysql.h>
+				```
+
+		1. The MySQL API is not initialized.
+			1. Problem: mysql_real_connect() is called with m as a parameter before the pointer m has been initialized to a database connection handler by the mysql_init() function.
+			1. Solution: Initialize m, by preceding 
+			
+				```c
+				mysql_real_connect(m,"localhost","root","","test",0,NULL,0);
+				``` 
+				
+				with	
+
+				```c
+				m = mysql_init(m);
+				```
+
+				like
+
+				```c
+				m = mysql_init(m);
+				mysql_real_connect(m,"localhost","root","","test",0,NULL,0);
+				```
+
+		1. The "password" parameter is empty.	
+	    	1. Problem: The "password" parameter is set to the empty string, in the call of mysql_real_connect(); so, the connection attempt fails.
+			1. Solution: Insert the password for the MySQL root user into the double quotes that populate the position of the password parameter in the call of mysql_real_connect(), thereby changing 
+
+				```c
+				mysql_real_connect(m,"localhost","root","","test",0,NULL,0);
+				```
+
+				to like
+
+				```c
+				mysql_real_connect(m,"localhost","root","password-of-mysql-root-user","test",0,NULL,0);
+				```
+
+		1. The statement "s" is not initialized before it is prepared.
+			1. Problem: mysql_stmt_prepare() is called with s as a parameter before the pointer s has been initialized to a prepared statement handler by the mysql_stmt_init() function.
+			1. Solution: Initialize s, by preceding 
+			
+				```c
+				mysql_stmt_prepare(s, sql2, strlen(sql2));	
+				``` 
+				
+				with	
+
+				```cc
+				s = mysql_stmt_init(m);
+				```
+
+				like
+
+				```c
+				s = mysql_stmt_init(m);
+				mysql_stmt_prepare(s, sql2, strlen(sql2));	
+				```
+				
+		1. The buffer of the parameter is set to a char rather than a pointer. 
+			1. Problem: The buffer of the parameter bound to the prepared statement s, par[0].buffer, is set to the char value of sd[0] rather than to a reference to the location ("address") of sd[0] in memory (aka a pointer); so, when '%localhost%' is later copied into the address of sd[0], the value of par[0].buffer does not change accordingly i.e. does not become '%localhost%.
+			1. Solution: Replace
+
+				```c
+				par[0].buffer= sd[0]
+				```
+
+				with
+
+				```c
+				par[0].buffer= &sd[0] //pointer to sd[0]
+				```
+
+		1. The buffer of the first result is set to a char rather than a pointer.
+			1. Problem: res[0].buffer is set to the char value of sd[1] rather than a pointer to sd[1]; so, when a result is later copied into the address of sd[1], the value of res[0].buffer does not change accordingly i.e. does not get the result.
+			1. Solution: Replace
+
+				```c
+				res[0].buffer= sd[1]
+				```
+
+				with
+
+				```c
+				res[0].buffer= &sd[1] //pointer to sd[1]
+				```
+
+		1. The buffer of the second result is set to a char rather than a pointer.	
+			1. Problem: res[1].buffer is set to the char value of sd[2] rather than a pointer to sd[2]; so, when a result is later copied into the address of sd[2], the value of res[1].buffer does not change accordingly i.e. does not get the result.
+			1. Solution: Replace
+
+				```c
+				res[1].buffer= sd[2]
+				```
+
+				with
+
+				```c
+				res[1].buffer= &sd[2] //pointer to sd[2]
+				```
+
+	 	1. The while loop doesn't fetch the results	
+			1. Problem: The condition of the while loop that would print the values from the results of the execution of the prepared statement does not fetch values from the results bound to the statement.
+			1. Solution: Replace
+
+				```c
+				while(w= mysql_fetch_row(r))
+				{
+					printf("%s@%s\n", sd[1], sd[2]);
+				}
+				```
+
+				with
+
+				```c
+				while (!mysql_stmt_fetch(s))
+				{
+					printf("%s@%s\n", sd[1], sd[2]);
+				}
+				```
