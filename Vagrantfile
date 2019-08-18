@@ -33,6 +33,7 @@ Vagrant.configure("2") do |config|
     mysql.vm.provision "mysql", type: "shell", path: "./provisioners/mysql/install_mysql.sh"
     mysql.vm.provision "mysql_support_files", type: "file", source: "./MySQL_Support_Exercise", destination: "$HOME"
     mysql.vm.provision "extract_mysql_support_files", type: "shell", path: "./provisioners/mysql/extract_mysql_support_files.sh"
+    mysql.vm.provision "connectorj", type: "shell", path: "./provisioners/mysql/install_connectorj.sh"
 
     mysql.vm.network "forwarded_port", guest: 3306, host: 3306
   end 

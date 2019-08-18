@@ -9,4 +9,5 @@ yum-config-manager --enable ol7_developer ol7_developer_epel && \
 
 yum -y install bzip2 cpio zip unzip dos2unix dialog curl jq git \
     iputils wget screen tmux byobu elinks augeas gdb \
-    java-1.8.0-openjdk-devel mysql mysql-devel mysql-lib
+    java-1.8.0-openjdk-devel mysql mysql-devel mysql-lib \
+    mysql-connnector-java

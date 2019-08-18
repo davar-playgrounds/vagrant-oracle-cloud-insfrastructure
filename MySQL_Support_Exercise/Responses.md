@@ -118,7 +118,7 @@
 			1. Suggestions: 
 				1. [Optimize](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#statement-optimization) queries. Use [the slow query log](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#slow-query-log) to identify queries to optimize first.
 			1. Rationale: 
-				1. The value of [Slow_queries](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Slow_queries) is 12761. This is a count of SQL statements that took more than [long_query_time](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_long_query_time) seconds to execute.
+				1. [Slow_queries](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Slow_queries) is 12761. This is a count of SQL statements that took more than [long_query_time](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_long_query_time) seconds to execute.
 				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, you should carefully check the indexes of your tables.
 				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
 				1. [Select_scan](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_scan) is 25643. This is a count of the number of joins that did a full scan of the first table. 
@@ -144,7 +144,7 @@
 				1. [Innodb_buffer_pool_reads](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Innodb_buffer_pool_reads) is 630232. This is the number of logical reads that InnoDB could not satisfy from the buffer pool, and had to read directly from the disk. If the buffer pool size has been set properly, this value should be small. 
 				1. [Innodb_buffer_pool_wait_free](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Innodb_buffer_pool_wait_free) is 2342. If the buffer pool size has been set properly, this value should be small. 
 				1. How to determine the _optimal_ value for innodb_buffer_pool_size:
-					1. Determine the actual size of the InnoDB tables, by running the query in the code block below.
+					1. Determine the actual size of the InnoDB tables by running the query in the code block below.
 				
 						```
 						SELECT engine,
@@ -406,3 +406,20 @@
 				```c
 				while (!mysql_stmt_fetch(s))
 				```
+
+1. "Reservations" | 90 minutes
+	1. Problems and possible solutions are:
+		1. Problem: getInteger() is called on the instance of ResultSet, rs, while there is no getInteger() method in [the ResultSet interface](https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html).
+		1. Solution: Replace each instance of
+
+			```
+			rs.getInteger
+			```
+
+			with
+
+			```
+			rs.getInt
+			```
+
+			which _is_ a method in [the ResultSet interface](https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html).
