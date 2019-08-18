@@ -10,7 +10,7 @@ public class Reservations {
 
                 //Connection cn= DriverManager.getConnection("jdbc:mysql://repserver.intranet:4987/active?user=rbradstreet");
                 Connection   cn= DriverManager.getConnection("jdbc:mysql://localhost:3306/mysql?user=root" +
-                        "&password=JNOhdkbe3j,U&useLegacyDatetimeCode=false&serverTimezone=America/Tijuana");
+                        "&password=password-of-mysql-root-user&useLegacyDatetimeCode=false&serverTimezone=America/Tijuana");
                 Statement s= null;
                 ResultSet rs= null;
                 s= cn.createStatement(java.sql.ResultSet.TYPE_FORWARD_ONLY,
