@@ -7,7 +7,7 @@
 			1. MySQL reads every row because it does not use the existing index "idx_code" on the citycodes.code column. 
 			1. It does not use the index "idx_code" because of a type mismatch: the query passes an integer (37040) as the value to be found in the citycodes.code column, while the type of the citycodes.code column is VARCHAR. 
 	
-	1. A possible solution is: Wrap 37040 in single quotes in the query, like `EXPLAIN SELECT city FROM citycodes WHERE code = '37040'\G`. That way, 37040 would be passed as a string rather than as an integer, and MySQL would use the "idx_code" index to speed the query.
+	1. A possible solution is: Wrap 37040 in single quotes in the query, like `SELECT city FROM citycodes WHERE code = '37040'\G`. That way, 37040 would be passed as a string rather than as an integer, and MySQL would use the "idx_code" index to speed the query.
 	
 1. "Attendance" | 200 minutes 
 	1. Changes that may bring performance improvements are:
@@ -46,7 +46,7 @@
 1. "Population" | 90 minutes 
 	1. The query performs poorly in MySQL 5.0 because: [the MySQL 5.0 optimizer incorrectly identifies the subquery as a dependent subquery because the subquery is using "IN"](https://bugs.mysql.com/bug.php?id=32665), so the subquery is run once per row of the containing query. The execution time thus is on the order of O(rows-of-inner*rows-of-outer) rather than O(rows-of-inner+rows-of-outer). 
 	1. Some solutions are:
-		1. Replace "IN" with "=". Also, remove CountryCode from the subquery because the left and right sides of "=" must be single values. CountryCode can safely be removed from the subquery: it is redundant there because CountryCode is selected in the containing query. Here is the query with "IN" replaced by "=", and CountryCode removed from the subquery:
+		1. Replace "IN" with "=", and remove CountryCode from the subquery because the left and right sides of "=" must be single values. CountryCode can safely be removed from the subquery: it is redundant there because CountryCode is selected in the containing query. Here is the query with "IN" replaced by "=", and CountryCode removed from the subquery:
 		
 			```sql
 			SELECT
@@ -85,7 +85,7 @@
 1. "Enrollment" | 75 minutes 
 	1. The cause of the failure of the query is: 
 		1. There are INNER JOINs expressed by the comma operator (aka "comma joins") mixed with another join type i.e. LEFT JOINs: 
-			1. [JOIN has a higher precedence than the comma operator in MySQL 5](https://dev.mysql.com/doc/refman/5.5/en/join.html); hence, the join expression "student, enrollment, inprog LEFT JOIN clsenr" is interpreted by MySQL 5 as (student, enrollment (inprog JOIN clsenr ON clsenr.enr_id= enrollment.enr_id)). 
+			1. [The precedence of the comma operator is less than of... LEFT JOIN](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/sql-syntax.html); hence, the join expression "student, enrollment, inprog LEFT JOIN clsenr" is interpreted by MySQL 5 as (student, enrollment (inprog JOIN clsenr ON clsenr.enr_id= enrollment.enr_id)). 
 			1. The operands of the ON clause thus are only inprog and clsenr, i.e. do not include enrollment; so, the enrollment.enr_id column is unknown to the ON clause.
 	1. A solution is: Avoid the use of the comma operator. Use JOIN instead:
 
@@ -112,48 +112,78 @@
 		AND inprog.sch_id= 1473;
 		```
   
-1. "Global Variables & Status" | **rough draft** | 240 minutes 
+1. "Global Variables & Status" | **rough draft** | 360 minutes 
 	1. Suggestions I feel are called for in order to improve performance, stability, et cetera; are: 
-		1. Slow_queries is 12761. A high value indicates that many queries are not executed optimally. Use the slow query log to identify and target these slow queries for optimization.
-		1. Select_full_join is 1867. This is a count of joins that do not use indexes. Select_scan is 25643. This is a count of the number of joins that did a full scan of the first table. Ensure indexes of tables exist that the optimizer can use to speed the joins, and that the joins are adjusted to take best advantage of the indexes.
-		1. Handler_read_rnd_next/Handler_read_key is 23675456/78665646 i.e. about 1/2. The former indicates queries that require MySQL to scan entire tables, while the latter indicates proper indexing. Handler_read_first is 3794. This is the number of times MySQL accessed the first row of a table index, which suggests that it is performing a sequential scan of the entire index. This indicates that the corresponding table is not properly indexed. Adjust indexes and queries to work together optimally.
-		1. Created_tmp_disk_tables/Created_tmp_tables is 123349/256798 i.e. about 1/2: ~50% of temp tables were created on disk. The actual limit of memory available for temporary tables is the smaller of the values of tmp_table_size (134217728) and max_heap_table_size (16777216). max_heap_table_size could be increased, to equal to or greater than the value of tmp_table_size; however, this might only enable inefficient queries to consume still more RAM, and might no longer be necessary once indexes and queries have been improved.
-		1. Key_reads/Key_reads_requests (the cache miss rate) is 1327838/6786353 = 0.20, while per [the manual](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html), states "[it] should normally be less than 0.01". Consider improving (reduce) this ratio by increasing key_buffer_size which is set to the default 8388600. Use the following process (https://scalegrid.io/blog/calculating-innodb-buffer-pool-size-for-your-mysql-server/) to determine a larger value to assign to key_buffer_size:
-			
-			1. Start with total RAM available.
-			1. Subtract suitable amount for the OS needs.
-			1. Subtract an amount according to the needs of other processes running on the system.
-			1. Subtract suitable amount for all MySQL needs (like various MySQL buffers, temporary tables, connection pools, and replication related buffers).
-			1. Divide the result by 105%, which is an approximation of the overhead required to manage the key buffer itself.
-		
-		1. SSL is not in use. Enable and configure SSL if MySQL is accepting connections from other than localhost.
-		1. Table_locks_waited/Table_locks_immediate is 542987/1272139 i.e almost 1/2: nearly half of all locks wait. Consider upgrading to MySQL 5.6+ and converting some or all tables to InnoDB to avoid table-level locking.
-		1. Innodb_buffer_pool_wait_free is 2342. If this variable is high, it suggests that innodb_buffer_pool_size is incorrectly sized for the number of writes the server performed. Innodb_buffer_pool_reads is 630232. If this variable is high, it suggests that innodb_buffer_pool_size is incorrectly sized for the number of reads the system performed. innodb_buffer_pool_size is set to 8388608 bytes, which is the default . Set it to a larger value, as near as possible to the actual size of the InnoDB tables i.e.
-			
-			```
-			SELECT engine,
-				count(*) as TABLES,
-				concat(round(sum(table_rows)/1000000,2),'M') rows,
-				concat(round(sum(data_length)/(1024*1024*1024),2),'G') DATA,
-				concat(round(sum(index_length)/(1024*1024*1024),2),'G') idx,
-				concat(round(sum(data_length+index_length)/(1024*1024*1024), 2),'G') total_size,
-				round(sum(index_length)/sum(data_length),2) idxfrac
-			FROM information_schema.TABLES
-			WHERE table_schema not in ('mysql', 'performance_schema', 'information_schema')
-			GROUP BY engine
-			ORDER BY sum(data_length+index_length) DESC LIMIT 10;
-			```
+		1. Optimize queries.
+			1. Suggestions: 
+				1. [Optimize](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#statement-optimization) queries. Use [the slow query log](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#slow-query-log) to identify queries to optimize first.
+			1. Rationale: 
+				1. The value of [Slow_queries](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Slow_queries) is 12761. This is a count of SQL statements that took more than [long_query_time](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_long_query_time) seconds to execute.
+				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, you should carefully check the indexes of your tables.
+				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
+				1. [Select_scan](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_scan) is 25643. This is a count of the number of joins that did a full scan of the first table. 
+				1. [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. This is a count of internal temporary tables created by the server while executing statements. 
+					1. There is a significant negative impact on performance when temporary tables are created on disk.
+					1.  Nearly half of all temporary tables were created on disk: [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349. This has a significant negative impact on performance. 
+					1. Creation of temporary tables can be avoided by optimizing queries. For more information:
+						1. [7.8.4. How MySQL Uses Internal Temporary Tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#internal-temporary-tables) describes the conditions under which temporary tables are created
+						1. [7.3.1.12. GROUP BY Optimization](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#group-by-optimization) describes how MySQL is able to avoid creation of temporary tables by using index access when queries are optimized.
+		1. Increase key_buffer_size.
+			1. Suggestion:	Assign a larger value to [key_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_key_buffer_size) to get better index handling for all reads and multiple writes.
+			1. Rationale:	
+				1. Key_reads/Key_reads_requests (the cache miss rate) is 1327838/6786353 = 0.20, while "[[it] should normally be less than 0.01](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html)".
+			1. How to determine the optimal value for key_buffer_size: 
+				1. Start with total RAM available.
+				1. Subtract a suitable amount for the OS needs.
+				1. Subtract a suitable amount for all MySQL needs such as buffers e.g. key_buffer_size and replication-related buffers, temporary tables, and connection pools.
+				1. Subtract an amount according to the needs of other processes running on the system.
+				1. Divide the result by 105%, which is an approximation of the overhead required to manage the key buffer itself.
+	 	1. Increase innodb_buffer_pool_size.
+			1. Suggestion: Assign a larger value to [innodb_buffer_pool_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/storage-engines.html#sysvar_innodb_buffer_pool_size) so less disk I/O is needed to access data in tables.
+			1. Rationale: 
+				1. [Innodb_buffer_pool_reads](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Innodb_buffer_pool_reads) is 630232. This is the number of logical reads that InnoDB could not satisfy from the buffer pool, and had to read directly from the disk. If the buffer pool size has been set properly, this value should be small. 
+				1. [Innodb_buffer_pool_wait_free](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Innodb_buffer_pool_wait_free) is 2342. If the buffer pool size has been set properly, this value should be small. 
+				1. How to determine the _optimal_ value for innodb_buffer_pool_size:
+					1. Determine the actual size of the InnoDB tables, by running the query in the code block below.
+				
+						```
+						SELECT engine,
+							count(*) as TABLES,
+							concat(round(sum(table_rows)/1000000,2),'M') rows,
+							concat(round(sum(data_length)/(1024*1024*1024),2),'G') DATA,
+							concat(round(sum(index_length)/(1024*1024*1024),2),'G') idx,
+							concat(round(sum(data_length+index_length)/(1024*1024*1024), 2),'G') total_size,
+							round(sum(index_length)/sum(data_length),2) idxfrac
+						FROM information_schema.TABLES
+						WHERE table_schema not in ('mysql', 'performance_schema', 'information_schema')
+						GROUP BY engine
+						ORDER BY sum(data_length+index_length) DESC LIMIT 10;
+						```
 
-			...plus 20%, leaving enough memory for other processes on the server to run without excessive paging (http://www.speedemy.com/mysql/17-key-mysql-config-file-settings/default_storage_engine/). Use the following process (https://scalegrid.io/blog/calculating-innodb-buffer-pool-size-for-your-mysql-server/) to determine what value to assign to innodb_buffer_pool_size:
-			
-			1. Start with total RAM available.
-			1. Subtract suitable amount for the OS needs.
-			1. Subtract an amount according to the needs of other processes running on the system.
-			1. Subtract suitable amount for all MySQL needs (like various MySQL buffers, temporary tables, connection pools, and replication related buffers).
-			1. Divide the result by 105%, which is an approximation of the overhead required to manage the buffer pool itself.
+					1. Add 20%. 
+				1. How to determine the _actual_ value to assign to innodb_buffer_pool_size:
+					1. Start with total RAM available.
+					1. Subtract a suitable amount for the OS needs.
+					1. Subtract a suitable amount for all MySQL needs such as buffers e.g. key_buffer_size and replication-related buffers, temporary tables, and connection pools.
+					1. Subtract an amount according to the needs of other processes running on the system.
+					1. Divide the result by 105%, which is an approximation of the overhead required to manage the buffer pool itself.
 
-		1. query_cache_type is set to ON, and query_cache_size to 104857600 i.e 100 megabytes. Meanwhile, MySQL has made a write for every six reads ( 78293 (Com_insert) +23923 (Com_update) + 378232 (Com_delete) / 2783289 (Com_select) ) . Each write of a table invalidates the query cache for ALL queries cached for that table; so, a frequently updated table doesn't benefit from the query cache. Query cache costs around 10% to 15% in overhead, and the query cache hit rate percentage ((Qcache_hits / (Qcache_hits + Qcache_inserts + Qcache_not_cached)) * 100) is 0.0004%; thus,  use of query cache is a net loss. Consider setting both query_cache_type and query_cache_size to 0 (requires a restart of mysqld) until/unless Qcache_lowmem_prunes grows large. Also, Connections/Uptime is 6734354/405423 i.e. sixteen connections per second; so, if there were many processor cores, there would be potential for contention for the query cache which if extant would make the query cache a bottleneck. That is almost certainly not true for the system under observation: version_compile_machine is powerpc, and version_compile_os is apple-darwin8.6.0; so, the system is likely an Apple Power Mac with two or fewer cores; and hence, there can be no such contention; however, if the system were ported to a machine with many cores, the potential for contention for the query cache would be a consideration.
-		1. Sort_merge_passes is 38291. Consider increasing the value of sort_buffer_size, which is 65536 as compared to the default 2097144. Else, sorting rows can be slower than expected because data is from disk rather than memory.
+		1. Use SSL. 
+			1. Suggestion: [Use SSL](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#secure-basics) for Secure Connections for clients outside the trusted network. 
+			1. Rationale: 
+				1. Unencrypted data sent over the network is accessible to everyone who has the time and ability to intercept it.
+			1. Side effects: 
+				1. Increased CPU usage. Encrypting data is a CPU-intensive operation that requires the computer to do additional work and can delay other MySQL tasks. 
+		1. Turn off the query cache.
+			1. Suggestion: Turn off [the query cache](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#query-cache) by setting both [query_cache_type](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_query_cache_type) and [query_cache_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_query_cache_size) to 0.
+			1. Rationale: 
+				1. The query cache hit rate is very low: 0.0004% ((Qcache_hits / (Qcache_hits + Qcache_inserts + Qcache_not_cached)) * 100).
+				1. There is overhead for having the query cache active.	
+		1. Increase the value of sort_buffer_size.
+			1. Suggestion: Assign a higher value to [sort_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_sort_buffer_size). 
+			1. Rationale: 
+				1. Sort_merge_passes is 38291. If this is high, data is read from disk when sorting rows.
+				1. sort_buffer_size is 65536, which is only ~3% of the default value 2097144.
 
 1. "User Data (identifier), or Cities or People or Vehicles" | 225 minutes 
 	1. The errors are:
@@ -260,7 +290,7 @@
 
 		1. The "password" parameter is empty.	
 	    	1. Problem: The "password" parameter is set to the empty string, in the call of mysql_real_connect(); so, the connection attempt fails.
-			1. Solution: Insert the password for the MySQL root user into the double quotes that populate the position of the password parameter in the call of mysql_real_connect(), thereby changing 
+			1. Solution: Insert the password for the MySQL root user into the double quotes in the password parameter in the call of mysql_real_connect(), thereby changing 
 
 				```c
 				mysql_real_connect(m,"localhost","root","","test",0,NULL,0);
