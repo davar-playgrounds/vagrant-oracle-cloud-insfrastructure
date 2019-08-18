@@ -112,7 +112,7 @@
 		AND inprog.sch_id= 1473;
 		```
   
-1. "Global Variables & Status" | **rough draft** | 360 minutes 
+1. "Global Variables & Status" | 360 minutes 
 	1. Suggestions I feel are called for in order to improve performance, stability, et cetera; are: 
 		1. Optimize queries.
 			1. Suggestions: 
