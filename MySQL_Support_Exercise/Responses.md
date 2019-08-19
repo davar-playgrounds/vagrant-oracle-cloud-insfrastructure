@@ -423,3 +423,14 @@
 			```
 
 			which _is_ a method in [the ResultSet interface](https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html).
+1. Question nine (9) aka "Absences" | 150 minutes
+	1. Probable cause: [The MYSQL_RES structure allocated for the client by mysql_store_result()](https://dev.mysql.com/doc/refman/5.7/en/mysql-store-result.html) grew until it consumed the available memory.
+	1. Possible solutions: 
+		1. Select only columns needed, rather than "SELECT *", if not all columns are needed. 
+			1. Fewer columns selected would result in a smaller result set that might not exceed limits.	
+		1. Make multiple queries. 
+			1. Let each query [select a limited number of rows beginning at an offset](https://dev.mysql.com/doc/refman/5.7/en/select.html).
+			1. Let each query, after the first, increase the offset by the value of the limit.
+			1. Call [mysql_free_result()](https://dev.mysql.com/doc/refman/5.7/en/mysql-free-result.html) after each query. 
+			1. Adjust the limit and offset to keep the size of the MYSQL_RES structure below the threshold of available memory.
+		1. There is a third possible solution _if the output isn't sent to a screen on which the user may type a ^S (stop scroll) e.g. a Linux terminal_: call [mysql_use_result()](https://dev.mysql.com/doc/refman/5.7/en/mysql-use-result.html) rather than mysql_store_result(). _This is not an option if the output is sent to a screen on which the user may type a ^S (stop scroll) e.g. a Linux terminal, because [^S would tie up the server and prevent other threads from updating any tables from which the data were being fetched](https://dev.mysql.com/doc/refman/5.7/en/mysql-use-result.html)_. 
