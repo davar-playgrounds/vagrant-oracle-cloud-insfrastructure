@@ -423,7 +423,7 @@
 			```
 
 			which _is_ a method in [the ResultSet interface](https://docs.oracle.com/javase/7/docs/api/java/sql/ResultSet.html).
-1. Question nine (9) aka "Absences" | 150 minutes
+1. "Absences" | 150 minutes
 	1. Probable cause: [The MYSQL_RES structure allocated for the client by mysql_store_result()](https://dev.mysql.com/doc/refman/5.7/en/mysql-store-result.html) grew until it consumed the available memory.
 	1. Possible solutions: 
 		1. Select only columns needed, rather than "SELECT *", if not all columns are needed. 
