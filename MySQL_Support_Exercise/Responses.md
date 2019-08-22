@@ -460,3 +460,15 @@
 			```java
 			"CREATE PROCEDURE abdt (std INT)\nBEGIN\nSELECT att_begin, att_end FROM abdt WHERE student_id = std;\n\nEND"
 			```
+
+1. "Sort aborted" | 120 minutes
+	1. Possible causes are:
+		1. The temporary file for use by [filesort](https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort) could not be opened due to a lack of disk space on the filesystem containing the directory to which [tmpdir](https://dev.mysql.com/doc/refman/5.7/en/temporary-files.html) points.
+			1. The dearth of disk space could be due to scanning of, or the return of a very large data set from,  a very large table or join of tables. Use of [the slow query log](https://dev.mysql.com/doc/refman/5.7/en/slow-query-log.html) and [EXPLAIN to optimize queries and indexes](https://dev.mysql.com/doc/refman/5.7/en/using-explain.html) could help resolve the issue in that case.  
+		1. A service managing multiple connections to mysqld e.g. a webserver, stopped, dropping the connections, while sorts were in progress.
+		1. Users (persons or bots) [killed queries](https://dev.mysql.com/doc/refman/5.7/en/kill.html ) while sorts were in progress.
+		1. Transactions were rolled back due to [deadlock detection](https://dev.mysql.com/doc/refman/5.7/en/innodb-deadlock-detection.html) or [lock wait timeout](https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_lock_wait_timeout), while sorts were in progress.
+		1. An error occurred e.g. table corruption.
+	1. How to discover possible causes: 
+		1. Versions of MySQL newer than 5.5.10: Set log_warnings to 2. Messages showing the client host, user, thread, and query will be written to the error log.
+		1. All versions: Enable general query log, and then match timestamps therein with timestamps in the error log.
