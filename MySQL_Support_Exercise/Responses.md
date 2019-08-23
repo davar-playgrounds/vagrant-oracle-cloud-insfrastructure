@@ -476,9 +476,9 @@
 1. "Can't create a new thread" | 240 minutes
 	1. Possible causes:
 		1. The operating system ("system") user that mysqld is running as (often "mysql") has reached the limit of processes or file descriptors afforded to the user by the system.
-			1. [The value of max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) may be greater than the limit of processes afforded to the user that mysqld runs as. 
-			1. [The value of open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the limit of file descriptors afforded to the user that mysqld runs as.
-			1. The value of either may be greater than the respective system-level limit.
+			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) may be greater than the limit of processes afforded to the user that mysqld runs as (a user-level limit). 
+			1. The value of [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the limit of file descriptors afforded to the user that mysqld runs as (a user-level limit).
+			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) or [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the respective system-level limit.
 			1. The way to view and set system limits varies across operating systems. On Oracle Linux:
 				1. Limits for a user, for example a user named "mysql", can be seen by running [su mysql](https://www.unix.com/man-page/centos/7/su) (may require [sudo](https://www.unix.com/man-page/centos/7/sudo)), followed by [ulimit](https://www.unix.com/man-page/centos/7/ulimit); like: 
 				
@@ -488,12 +488,11 @@
 					ulimit -n #show number of file descriptors, aka nofile, afforded the user
 					```
 					
-				1. Per-user limits e.g. noproc and nofile are set in [/etc/security/limits.conf and /etc/security/limits.d/*.conf](https://www.unix.com/man-page/centos/7/limits.conf/), and enforced by [PAM](https://www.unix.com/man-page/centos/5/pam/).
-				1. System-level limits can be seen by running [sysctl](https://www.unix.com/man-page/centos/7/sysctl/), and are set in [/etc/sysctl.conf](https://www.unix.com/man-page/centos/5/sysctl.conf/).		
+				1. Per-user limits e.g. [noproc (maximum number of processes) and nofile (maximum number of open files)](http://linux-pam.org/Linux-PAM-html/sag-pam_limits.html) are set in [/etc/security/limits.conf and /etc/security/limits.d/*.conf](https://www.unix.com/man-page/centos/7/limits.conf/), and enforced by [PAM](https://www.unix.com/man-page/centos/5/pam/).
+				1. Corresponding system-level limits can be seen by running [sysctl](https://www.unix.com/man-page/centos/7/sysctl/), and are set in [/etc/sysctl.conf](https://www.unix.com/man-page/centos/5/sysctl.conf/).		
 				1. Changes to /etc/security/limits.conf, /etc/security/limits.d/*.conf, and /etc/sysctl.conf require a reboot to take effect. Log out and back in before rebooting so the shell will have the new limits when the reboot operation is initiated.
 				1. __Important!__: Services that are started by Systemd do not use PAM for login, so the limits in /etc/security/limits.conf and /etc/security/limits.d/\*.conf are ignored in that case! 
-					1. Hence, to modify a resource limit for mysql as a Systemd service, define the limit in the Systemd service definition file for mysqld, /usr/lib/systemd/system/mysqld.service, _in addition to setting it in /etc/security/limits.conf and /etc/security/limits.d/*.conf_.
-					1. Add line(s) for the limit(s) to the [Service] section of the service definition for mysqld, e.g.
+					1. Hence, to modify a user-level limit for mysql running as a Systemd service, define the limit in the Systemd service definition file for mysqld, /usr/lib/systemd/system/mysqld.service, _in addition to setting it in /etc/security/limits.conf and /etc/security/limits.d/*.conf_: add line(s) for the limit(s) to the [Service] section, e.g.
 
 						```
 						...
