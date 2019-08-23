@@ -167,6 +167,26 @@
 					1. Subtract a suitable amount for all MySQL needs such as buffers e.g. key_buffer_size and replication-related buffers, temporary tables, and connection pools.
 					1. Subtract an amount according to the needs of other processes running on the system.
 					1. Divide the result by 105%, which is an approximation of the overhead required to manage the buffer pool itself.
+		1. TODO: [Another algorithm](http://mysql.rjweb.org/doc.php/memory)
+			1. This will set the main cache settings to the minimum; it could be important to systems with lots of other processes and/or RAM is 2GB or smaller. 
+			1. Do SHOW TABLE STATUS for all the tables in all the databases. Or run this to see the values for you system (If you have a lot of tables, it can take minute(s).):
+
+				```
+				SELECT  ENGINE,
+					ROUND(SUM(data_length) /1024/1024, 1) AS "Data MB",
+					ROUND(SUM(index_length)/1024/1024, 1) AS "Index MB",
+					ROUND(SUM(data_length + index_length)/1024/1024, 1) AS "Total MB",
+					COUNT(*) "Num Tables"
+				FROM  INFORMATION_SCHEMA.TABLES
+				WHERE  table_schema not in ("information_schema", "PERFORMANCE_SCHEMA", "SYS_SCHEMA", "ndbinfo", "sys")
+				GROUP BY  ENGINE;
+				```	
+			
+				(There may be an issue in MySQL 8.0 of getting these values initialized.) 
+
+			1. Add up Index_length for all the MyISAM tables. Set key_buffer_size no larger than that size, but not bigger than 20% of RAM. 
+			1. Add up Data_length + Index_length for all the InnoDB tables. Set innodb_buffer_pool_size to no more than 110% of that total, but not bigger than 70% of RAM. 
+			1. If that leads to swapping, cut both settings back. Suggest cutting them down proportionately. 
 
 		1. Use SSL. 
 			1. Suggestion: [Use SSL](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#secure-basics) for Secure Connections for clients outside the trusted network. 
@@ -179,11 +199,16 @@
 			1. Rationale: 
 				1. The query cache hit rate is very low: 0.0004% ((Qcache_hits / (Qcache_hits + Qcache_inserts + Qcache_not_cached)) * 100).
 				1. There is overhead for having the query cache active.	
-		1. Increase the value of sort_buffer_size.
-			1. Suggestion: Assign a higher value to [sort_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_sort_buffer_size). 
+		1. TODO: Increase the value of sort_buffer_size.
+			1. Suggestion: Assign a higher value to [sort_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_sort_buffer_size). Increase the value only little at a time; it is a per-connection variable and so could consume all available system memory. 
 			1. Rationale: 
 				1. Sort_merge_passes is 38291. If this is high, data is read from disk when sorting rows.
 				1. sort_buffer_size is 65536, which is only ~3% of the default value 2097144.
+				1. TODO:
+					1. https://www.vividcortex.com/blog/2015/10/02/sort-buffer/ 
+					1. https://www.percona.com/blog/2007/08/18/how-fast-can-you-sort-data-with-mysql/
+					1. https://www.percona.com/blog/2010/10/25/impact-of-the-sort-buffer-size-in-mysql/
+
 
 1. "User Data (identifier), or Cities or People or Vehicles" | 225 minutes 
 	1. The errors are:
@@ -479,7 +504,7 @@
 			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) may be greater than the limit of processes afforded to the user that mysqld runs as (a user-level limit). 
 			1. The value of [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the limit of file descriptors afforded to the user that mysqld runs as (a user-level limit).
 			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) or [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the respective system-level limit.
-			1. The way to view and set system limits varies across operating systems. On Oracle Linux:
+			1. The way to view and set limits varies across operating systems. On Oracle Linux:
 				1. Limits for a user, for example a user named "mysql", can be seen by running [su mysql](https://www.unix.com/man-page/centos/7/su) (may require [sudo](https://www.unix.com/man-page/centos/7/sudo)), followed by [ulimit](https://www.unix.com/man-page/centos/7/ulimit); like: 
 				
 					```
