@@ -112,104 +112,30 @@
 		AND inprog.sch_id= 1473;
 		```
   
-1. "Global Variables & Status" | 360 minutes 
+1. "Global Variables & Status" | 390 minutes 
 	1. Suggestions I feel are called for in order to improve performance, stability, et cetera; are: 
-		1. Optimize queries.
-			1. Suggestions: 
-				1. [Optimize](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#statement-optimization) queries. Use [the slow query log](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#slow-query-log) to identify queries to optimize first.
+		1. [Optimize](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#statement-optimization) queries. Use [the slow query log](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#slow-query-log) to identify queries to optimize first.
 			1. Rationale: 
 				1. [Slow_queries](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Slow_queries) is 12761. This is a count of SQL statements that took more than [long_query_time](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_long_query_time) seconds to execute.
 				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, you should carefully check the indexes of your tables.
-				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
-				1. [Select_scan](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_scan) is 25643. This is a count of the number of joins that did a full scan of the first table. 
+				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, I think [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
 				1. [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. This is a count of internal temporary tables created by the server while executing statements. 
-					1. There is a significant negative impact on performance when temporary tables are created on disk.
-					1.  Nearly half of all temporary tables were created on disk: [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349. This has a significant negative impact on performance. 
+					1.  Nearly half of all temporary tables were created on disk: [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349 while [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. 
 					1. Creation of temporary tables can be avoided by optimizing queries. For more information:
 						1. [7.8.4. How MySQL Uses Internal Temporary Tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#internal-temporary-tables) describes the conditions under which temporary tables are created
 						1. [7.3.1.12. GROUP BY Optimization](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#group-by-optimization) describes how MySQL is able to avoid creation of temporary tables by using index access when queries are optimized.
-		1. Increase key_buffer_size.
-			1. Suggestion:	Assign a larger value to [key_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_key_buffer_size) to get better index handling for all reads and multiple writes.
-			1. Rationale:	
-				1. Key_reads/Key_reads_requests (the cache miss rate) is 1327838/6786353 = 0.20, while "[[it] should normally be less than 0.01](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html)".
-			1. How to determine the optimal value for key_buffer_size: 
-				1. Start with total RAM available.
-				1. Subtract a suitable amount for the OS needs.
-				1. Subtract a suitable amount for all MySQL needs such as buffers e.g. key_buffer_size and replication-related buffers, temporary tables, and connection pools.
-				1. Subtract an amount according to the needs of other processes running on the system.
-				1. Divide the result by 105%, which is an approximation of the overhead required to manage the key buffer itself.
-	 	1. Increase innodb_buffer_pool_size.
-			1. Suggestion: Assign a larger value to [innodb_buffer_pool_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/storage-engines.html#sysvar_innodb_buffer_pool_size) so less disk I/O is needed to access data in tables.
-			1. Rationale: 
-				1. [Innodb_buffer_pool_reads](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Innodb_buffer_pool_reads) is 630232. This is the number of logical reads that InnoDB could not satisfy from the buffer pool, and had to read directly from the disk. If the buffer pool size has been set properly, this value should be small. 
-				1. [Innodb_buffer_pool_wait_free](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Innodb_buffer_pool_wait_free) is 2342. If the buffer pool size has been set properly, this value should be small. 
-				1. How to determine the _optimal_ value for innodb_buffer_pool_size:
-					1. Determine the actual size of the InnoDB tables by running the query in the code block below.
-				
-						```
-						SELECT engine,
-							count(*) as TABLES,
-							concat(round(sum(table_rows)/1000000,2),'M') rows,
-							concat(round(sum(data_length)/(1024*1024*1024),2),'G') DATA,
-							concat(round(sum(index_length)/(1024*1024*1024),2),'G') idx,
-							concat(round(sum(data_length+index_length)/(1024*1024*1024), 2),'G') total_size,
-							round(sum(index_length)/sum(data_length),2) idxfrac
-						FROM information_schema.TABLES
-						WHERE table_schema not in ('mysql', 'performance_schema', 'information_schema')
-						GROUP BY engine
-						ORDER BY sum(data_length+index_length) DESC LIMIT 10;
-						```
-
-					1. Add 20%. 
-				1. How to determine the _actual_ value to assign to innodb_buffer_pool_size:
-					1. Start with total RAM available.
-					1. Subtract a suitable amount for the OS needs.
-					1. Subtract a suitable amount for all MySQL needs such as buffers e.g. key_buffer_size and replication-related buffers, temporary tables, and connection pools.
-					1. Subtract an amount according to the needs of other processes running on the system.
-					1. Divide the result by 105%, which is an approximation of the overhead required to manage the buffer pool itself.
-		1. TODO: [Another algorithm](http://mysql.rjweb.org/doc.php/memory)
-			1. This will set the main cache settings to the minimum; it could be important to systems with lots of other processes and/or RAM is 2GB or smaller. 
-			1. Do SHOW TABLE STATUS for all the tables in all the databases. Or run this to see the values for you system (If you have a lot of tables, it can take minute(s).):
-
-				```
-				SELECT  ENGINE,
-					ROUND(SUM(data_length) /1024/1024, 1) AS "Data MB",
-					ROUND(SUM(index_length)/1024/1024, 1) AS "Index MB",
-					ROUND(SUM(data_length + index_length)/1024/1024, 1) AS "Total MB",
-					COUNT(*) "Num Tables"
-				FROM  INFORMATION_SCHEMA.TABLES
-				WHERE  table_schema not in ("information_schema", "PERFORMANCE_SCHEMA", "SYS_SCHEMA", "ndbinfo", "sys")
-				GROUP BY  ENGINE;
-				```	
-			
-				(There may be an issue in MySQL 8.0 of getting these values initialized.) 
-
-			1. Add up Index_length for all the MyISAM tables. Set key_buffer_size no larger than that size, but not bigger than 20% of RAM. 
-			1. Add up Data_length + Index_length for all the InnoDB tables. Set innodb_buffer_pool_size to no more than 110% of that total, but not bigger than 70% of RAM. 
-			1. If that leads to swapping, cut both settings back. Suggest cutting them down proportionately. 
-
-		1. Use SSL. 
-			1. Suggestion: [Use SSL](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#secure-basics) for Secure Connections for clients outside the trusted network. 
-			1. Rationale: 
-				1. Unencrypted data sent over the network is accessible to everyone who has the time and ability to intercept it.
-			1. Side effects: 
-				1. Increased CPU usage. Encrypting data is a CPU-intensive operation that requires the computer to do additional work and can delay other MySQL tasks. 
-		1. Turn off the query cache.
-			1. Suggestion: Turn off [the query cache](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#query-cache) by setting both [query_cache_type](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_query_cache_type) and [query_cache_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_query_cache_size) to 0.
-			1. Rationale: 
-				1. The query cache hit rate is very low: 0.0004% ((Qcache_hits / (Qcache_hits + Qcache_inserts + Qcache_not_cached)) * 100).
-				1. There is overhead for having the query cache active.	
-		1. TODO: Increase the value of sort_buffer_size.
-			1. Suggestion: Assign a higher value to [sort_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_sort_buffer_size). Increase the value only little at a time; it is a per-connection variable and so could consume all available system memory. 
-			1. Rationale: 
-				1. Sort_merge_passes is 38291. If this is high, data is read from disk when sorting rows.
-				1. sort_buffer_size is 65536, which is only ~3% of the default value 2097144.
-				1. TODO:
-					1. https://www.vividcortex.com/blog/2015/10/02/sort-buffer/ 
-					1. https://www.percona.com/blog/2007/08/18/how-fast-can-you-sort-data-with-mysql/
-					1. https://www.percona.com/blog/2010/10/25/impact-of-the-sort-buffer-size-in-mysql/
-
-
+		1. Increase [key_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_key_buffer_size) to get better index handling for all reads and multiple writes.
+			1. Rationale: Key_reads/Key_read_requests (the cache miss rate) is 1327838/6786353 = 0.20, while "[[it] should normally be less than 0.01](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html)".
+			1. Execution: 
+			    1. [Observe free memory](https://www.linuxjournal.com/article/8178) for the whole of the system.
+				1. Increase key_buffer_size by an amount corresponding to some fraction of the observed free memory.	
+				1. If the increased key_buffer_size leads to [memory swapping out and reduced performance aka "thrashing"](https://www.linuxjournal.com/article/8178), then reduce the value of key_buffer_size until performance is within tolerance. 
+				1. Else, continue to incrementally increase the value of key_buffer_size until thrashing is observed, and then back it off until performance returns to within tolerance. 
+		1. Turn off [the query cache](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#query-cache) .
+			1. Rationale: Only 0.0004 percent of queries access the cache: the "queue cache hit rate" i.e. Qcache_hits / (Qcache_hits + Qcache_inserts + Qcache_not_cached)*100 is 0.0004. The cost of the overhead of running the query cache likely exceeds the benefit while the hit rate is that low.
+			1. Execution: 
+				1. Set [query_cache_type](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_query_cache_type) to 0. 
+				1. Set [query_cache_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_query_cache_size) to 0.
 1. "User Data (identifier), or Cities or People or Vehicles" | 225 minutes 
 	1. The errors are:
 		1. No DELIMITER 
@@ -495,8 +421,8 @@
 		1. Transactions were rolled back due to [deadlock detection](https://dev.mysql.com/doc/refman/5.7/en/innodb-deadlock-detection.html) or [lock wait timeout](https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_lock_wait_timeout), while sorts were in progress.
 		1. An error occurred e.g. table corruption.
 	1. How to discover possible causes: 
-		1. Versions of MySQL newer than 5.5.10: Set log_warnings to 2. Messages showing the client host, user, thread, and query will be written to the error log.
-		1. All versions: Enable general query log, and then match timestamps therein with timestamps in the error log.1. "Can't create a new thread" | 240 minutes
+		1. Versions of MySQL newer than 5.5.10: Set [log_warnings](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html#sysvar_log_warnings) to 2. 
+			1. Messages showing the client host, user, thread, and query will be written to the error log.
 		1. All versions: Enable the general query log, and then match timestamps therein with timestamps in the error log.
 1. "Can't create a new thread" | 240 minutes
 	1. Possible causes:
@@ -517,15 +443,17 @@
 				1. Corresponding system-level limits can be seen by running [sysctl](https://www.unix.com/man-page/centos/7/sysctl/), and are set in [/etc/sysctl.conf](https://www.unix.com/man-page/centos/5/sysctl.conf/).		
 				1. Changes to /etc/security/limits.conf, /etc/security/limits.d/*.conf, and /etc/sysctl.conf require a reboot to take effect. Log out and back in before rebooting so the shell will have the new limits when the reboot operation is initiated.
 				1. __Important!__: Services that are started by Systemd do not use PAM for login, so the limits in /etc/security/limits.conf and /etc/security/limits.d/\*.conf are ignored in that case! 
-					1. Hence, to modify a user-level limit for mysql running as a Systemd service, define the limit in the Systemd service definition file for mysqld, /usr/lib/systemd/system/mysqld.service, _in addition to setting it in /etc/security/limits.conf and /etc/security/limits.d/*.conf_: add line(s) for the limit(s) to the [Service] section, e.g.
+					1. Hence, to modify a user-level limit for mysql running as a Systemd service, define the limit in the Systemd service definition file for mysqld, /usr/lib/systemd/system/mysqld.service, _in addition to setting it in /etc/security/limits.d/*.conf_.	
+						1. Add line(s) for the limit(s) to the [Service] section, e.g.
 
-						```
-						...
-						[Service]
-						...
-						LimitNOFILE=55000
-						LimitNPROC=55000
-						```
+						
+							```
+							...
+							[Service]
+							...
+							LimitNOFILE=55000
+							LimitNPROC=55000
+							```
 
 					1. Reload the Systemd configuration by running `systemctl daemon-reload` (may require sudo).
 
