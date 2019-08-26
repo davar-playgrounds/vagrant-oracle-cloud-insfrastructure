@@ -12,9 +12,9 @@
 1. "Attendance" | 200 minutes 
 	1. Changes that may bring performance improvements are:
 		1. Add a composite index to the enrsec table so MySQL does not read all of its 268959744 rows. Put the columns of the composite index in the order in which they are JOINed by the query: `ALTER TABLE enrsec ADD INDEX(enrollment_id, course_no, section_no);`.
-		1. Make FIND_IN_SET unnecessary and remove it from the SELECT so MySQL does not read all 262656 rows of the enrollment table:
-			1. MySQL does not use an index when matching against a derived value e.g. the result of FIND_IN_SET. The WHERE clause of the given SELECT contains FIND_IN_SET('F', e.enrollment_flags); so, MySQL does not use an index when matching against it; so, make the following changes to make the FIND_IN_SET expression unneccessary and remove it from the SELECT:
-				1. Add a table to store enrollment flags, named enrollment_flags. Let it have a column enrollment_id, and an index on that column:
+		1. Make FIND_IN_SET unnecessary and remove it from the SELECT so MySQL does not read all 262656 rows of the enrollment table.
+			1. MySQL does not use an index when matching against a derived value e.g. the value of FIND_IN_SET('F', e.enrollment_flags) != 0); so, make FIND_IN_SET unneccessary to the query, and remove it from the SELECT.
+				1. Add a table named enrollment_flags to store (you guessed it!) enrollment flags. Let it have a column enrollment_id, and an index on that column.
 				
 					```sql
 					CREATE TABLE enrollment_flags
@@ -24,20 +24,19 @@
 					) ENGINE=MyISAM;
 					```
 					
-				1. Move the flags from the enrollments table to the enrollment_flags table: 
-					1. For each row in the enrollments table: 
-						1. For each flag in the comma-separated list in the enrollment_flags column of the current row:
-						    1. If there is no column named for the flag, in the enrollment_flags _table_; e.g. for a flag 'F', a column named F, in the enrollment_flags _table_:
-								1. Create a column named for the flag, in the enrollments_flags _table_; e.g. for a flag 'F', create a column enrollment_flags.F.	
-						1. Create a corresponding row in the enrollment_flags table.	
-						1. Set enrollment_flags.enrollment_id of the corresponding row to the value of enrollment.enrollment_id of the current row.
-						1. For each flag in the comma-separated list in the enrollment_flags column of the current row:
-							1. Set the value of the respective (named for the flag) column in the corresponding row in the enrollment_flags table to TRUE; e.g. for 'F' set enrollment_flags.F to 1 in the corresponding row.
-							1. Remove the flag from the comma-separated list.  
-							1. If the flag is the last of the comma-separated values:
-								1. Set the value of enrollment_flags of the current row to NULL.
-				1. When the enrollment_flags column is NULL in every row of the enrollment table, remove the enrollment_flags column from the enrollment table.
-				1. Make the following changes to the SELECT:
+				1. Move the flags from the enrollments table to the enrollment_flags table.
+					1. For each row in the enrollments table:
+						1. Create a row in the enrollment_flags table.	
+						1. Set enrollment_flags.enrollment_id to the value of enrollment.enrollment_id.
+						1. For each flag in the comma-separated list in enrollment.enrollment_flags, e.g. for a flag 'F':
+						    1. If in the enrollment_flags table there is no column named for the flag e.g. if there is no column enrollment_flags.F.
+								1. Create in the enrollments_flags table a column named for the flag e.g. create a column enrollment_flags.F.	
+							1. Set the value of the column named for the flag to 1 (aka TRUE) e.g. set enrollment_flags.F to 1.
+							1. Remove the flag from the comma-separated list in enrollment.enrollment_flags e.g. remove 'F' from the list.
+							1. If the flag is the last of the comma-separated values in enrollment.enrollment_flags e.g. if 'F' is the last flag in the list:
+								1. Set the value of enrollment_flags to NULL.
+				1. When the enrollment.enrollment_flags column is NULL in every row, remove the enrollment_flags column from the enrollment table.
+				1. Make the following changes to the SELECT.
 					1. Replace `e.enrollment_flags` with `ef.enrollment_flags`
 					1. Append to the FROM: `INNER JOIN enrollment_flags ef ON e.enrollment_id = ef.enrollment_id`
 					1. Delete from the WHERE: `AND FIND_IN_SET('F', e.enrollment_flags) != 0`
@@ -120,8 +119,8 @@
 				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, you should carefully check the indexes of your tables.
 				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, I think [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
 				1. [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. This is a count of internal temporary tables created by the server while executing statements. 
-					1.  Nearly half of all temporary tables were created on disk: [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349 while [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. 
-					1. Creation of temporary tables can be avoided by optimizing queries. For more information:
+					1.  Nearly half of all temporary tables were created on disk (a performance cost): [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349 while [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. 
+					1. Creation of temporary tables can be avoided by optimizing queries:
 						1. [7.8.4. How MySQL Uses Internal Temporary Tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#internal-temporary-tables) describes the conditions under which temporary tables are created
 						1. [7.3.1.12. GROUP BY Optimization](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#group-by-optimization) describes how MySQL is able to avoid creation of temporary tables by using index access when queries are optimized.
 		1. Increase [key_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_key_buffer_size) to get better index handling for all reads and multiple writes.
@@ -139,16 +138,15 @@
 1. "User Data (identifier), or Cities or People or Vehicles" | 225 minutes 
 	1. The errors are:
 		1. No DELIMITER 
-			1. No DELIMITER is declared to delimit statements that affect the procedure at the scope at which the procudure is created, e.g. to delimit the final END statement of the creation of the procedure. Such a delimiter is necessary in order that MySQL can distinguish statements that are at the level/scope of the exterior of the procedure from those that are within the procedure, which are delimited by the semicolon. 
-			2. There is no such delimiter delimiting the terminus of the final END statement of the declaration of the procedure.
-		2. The first parameter of the procedure, user_group, has the same name as a field/column to which it is compared in the WHERE clause of the SELECT of the CURSOR declaration. As a result, the query completes successfully but the comparison isn't made; so, the SELECT returns multiple rows when only one row would otherwise be returned. A solution is to change the name of the parameter.
-		3. The declaration of mdata is unnecessary and overwrites the value of the parameter mdata with NULL. It can be omitted.
+			1. No DELIMITER is declared to delimit statements that affect the procedure at the scope at which the procudure is created. Such a delimiter is necessary in order that MySQL can distinguish statements that are at the level/scope of the exterior of the procedure from those that are within the procedure, which are delimited by the semicolon. 
+			2. Correspondingly, there is no such delimiter delimiting the END statement that closes the CREATE PROCEDURE.
+		2. The first parameter of the procedure, muser_group, has the same name as a field/column to which it is compared in the WHERE clause of the SELECT of the CURSOR declaration. As a result, the query completes successfully but the comparison isn't made; so, the SELECT returns multiple rows when only one row would otherwise be returned. A solution is to change the name of the parameter.
+		3. The declaration of mdata is unnecessary and overwrites the value of the parameter mdata with NULL. The declaration can be omitted.
 		4. The SELECT of the declaration of the CURSOR is missing the FROM clause i.e. has no "...FROM musers...".
 		5. The CONTINUE HANDLER sets the variable named "done" to 0 (FALSE) rather than 1 (TRUE). This results in an infinite loop.
-		5. The presence of a BEGIN/END wrapping the IF statement that follows the declaration of the CONTINUE HANDLER results in a fatal error. It is unnecessary.
-		6. The variable "psql" is set like "SET psql=...", without "@" prefixing, when it is SET with a value that is a statement to be executed. The "@" is required syntax, like: "SET @psql=...".
+		6. "psql" is not a User Variable while it is the object of the FROM clause of a PREPARE statement. MySQL considers this a syntactical error.
 		7. The SELECT in the statement on the right side of the declaration of psql for the case that mdata is equal to the empty string does not "retrieve muser_data from musers for all users that belong to the specified muser_group", but rather returns the results for the mu_ table with the suffix matching the value of the mdata parameter of the procedure.
-		8. The END IF that closes the "IF NOT done..." and the one that closes the "IF mdata <>...'' statement are both missing the semicolon as delimiter at the end of the line.
+		8. The END IF that closes the "IF mdata <>...", the END IF that closes the "IF NOT done...", and the END of the BEGIN that immediately follows the variable declarations are all missing the semicolon as delimiter at the end of the line.
 		9. The "CLOSE cr;" statement is outside the ELSE of the "IF mdata <>..." statement, and belongs inside it.
 		
 	1. The corrected procedure is:
