@@ -144,7 +144,7 @@
 		3. The declaration of mdata is unnecessary and overwrites the value of the parameter mdata with NULL. The declaration can be omitted.
 		4. The SELECT of the declaration of the CURSOR is missing the FROM clause i.e. has no "...FROM musers...".
 		5. The CONTINUE HANDLER sets the variable named "done" to 0 (FALSE) rather than 1 (TRUE). This results in an infinite loop.
-		6. "psql" is not a User Variable while it is the object of the FROM clause of a PREPARE statement. MySQL considers this a syntactical error.
+		6. "psql" is not a [User-Defined Variable](https://dev.mysql.com/doc/refman/5.7/en/user-variables.html) while it is the object of the FROM clause of a PREPARE statement. MySQL considers this a syntactical error.
 		7. The SELECT in the statement on the right side of the declaration of psql for the case that mdata is equal to the empty string does not "retrieve muser_data from musers for all users that belong to the specified muser_group", but rather returns the results for the mu_ table with the suffix matching the value of the mdata parameter of the procedure.
 		8. The END IF that closes the "IF mdata <>...", the END IF that closes the "IF NOT done...", and the END of the BEGIN that immediately follows the variable declarations are all missing the semicolon as delimiter at the end of the line.
 		9. The "CLOSE cr;" statement is outside the ELSE of the "IF mdata <>..." statement, and belongs inside it.
