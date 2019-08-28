@@ -456,7 +456,7 @@
 					1. Reload the Systemd configuration by running `systemctl daemon-reload` (may require sudo).
 
 		1. mysqld consumed all available system memory i.e., roughly, the size in memory of "buffers shared by all threads + per-thread buffers * max_connections" exceeded the free memory of the system.
-1. "Different Errors on Master and Slave" | 360 minutes
+1. "Different Errors on Master and Slave" | 180 minutes
 	1. Identify
 		1. What happened on the master: The query was killed. The statement was put into the binlog, along with error 1317.
 		1. Why the NY slave reported an error: [If a statement produces different errors on the master and the slave, the slave SQL thread terminates. This includes the case that a statement produces an error on the master or the slave, but not both](https://dev.mysql.com/doc/refman/5.7/en/replication-features-slaveerrors.html). The statement generated 1317 on the master but not on the NY slave; so, the NY slave stopped with an error.
