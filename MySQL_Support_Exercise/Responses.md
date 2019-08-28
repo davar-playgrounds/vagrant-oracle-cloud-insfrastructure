@@ -144,7 +144,7 @@
 		3. The declaration of mdata is unnecessary and overwrites the value of the parameter mdata with NULL. The declaration can be omitted.
 		4. The SELECT of the declaration of the CURSOR is missing the FROM clause i.e. has no "...FROM musers...".
 		5. The CONTINUE HANDLER sets the variable named "done" to 0 (FALSE) rather than 1 (TRUE). This results in an infinite loop.
-		6. "psql" is not a User Variable while it is the object of the FROM clause of a PREPARE statement. MySQL considers this a syntactical error.
+		6. psql is not a [User-Defined Variable](https://dev.mysql.com/doc/refman/5.7/en/user-variables.html) while it is the object of the FROM clause of a PREPARE statement. MySQL considers this a syntactical error.
 		7. The SELECT in the statement on the right side of the declaration of psql for the case that mdata is equal to the empty string does not "retrieve muser_data from musers for all users that belong to the specified muser_group", but rather returns the results for the mu_ table with the suffix matching the value of the mdata parameter of the procedure.
 		8. The END IF that closes the "IF mdata <>...", the END IF that closes the "IF NOT done...", and the END of the BEGIN that immediately follows the variable declarations are all missing the semicolon as delimiter at the end of the line.
 		9. The "CLOSE cr;" statement is outside the ELSE of the "IF mdata <>..." statement, and belongs inside it.
@@ -456,3 +456,16 @@
 					1. Reload the Systemd configuration by running `systemctl daemon-reload` (may require sudo).
 
 		1. mysqld consumed all available system memory i.e., roughly, the size in memory of "buffers shared by all threads + per-thread buffers * max_connections" exceeded the free memory of the system.
+1. "Different Errors on Master and Slave" | 360 minutes
+	1. Identify
+		1. What happened on the master: The query was KILLed. The statement was put into the binlog, along with error 1317.
+		1. Why the NY slave reported an error: [If a statement produces different errors on the master and the slave, the slave SQL thread terminates. This includes the case that a statement produces an error on the master or the slave, but not both](https://dev.mysql.com/doc/refman/5.7/en/replication-features-slaveerrors.html). The statement generated 1317 on the master but not on the NY slave; so, the NY slave stopped with an error.
+		1. Why the TX slave succeeded: [replicate_do_db](https://dev.mysql.com/doc/refman/5.7/en/replication-options-slave.html#option_mysqld_replicate-do-db) was set to 'asms' on the TX slave, while the default database was 'test' when the query executed there; so, the slave did not replicate the statement.
+		1. How to recover: On the NY slave, run 
+		
+			```sql
+			-- Skip the error
+			SET GLOBAL SLAVE_SKIP_COUNTER=1; /* https://dev.mysql.com/doc/refman/5.7/en/start-slave.html */
+			-- Continue replication
+			START SLAVE; /* https://dev.mysql.com/doc/refman/5.7/en/start-slave.html */
+			```
