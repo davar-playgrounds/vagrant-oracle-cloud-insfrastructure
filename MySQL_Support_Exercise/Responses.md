@@ -564,7 +564,7 @@
 				mysql> START SLAVE;
 				```
 
-1. "Relay log" | 60 minutes
+1. "Relay log" | 180 minutes
 	1. Replication is not working because: The slave SQL thread is not running. It aborted when it was unable to parse a relay log entry in ubuntu3-relay-bin.000003. A run of [mysqlbinlog](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/programs.html#mysqlbinlog) i.e. `mysqlbinlog ubuntu3-relay-bin.000003`, sent "ERROR: Could not read entry at offset 466: Error in log format or read error" to stderr, which indicates corruption of ubuntu3-relay-bin.000003.
 	1. To resume operation:
 	 	1. Consider that the current [Relay_Master_Log_File](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/sql-syntax.html#show-slave-status), hfisk-desktop-bin.000007, is intact. This is indicated by the absense of errors upon a run of `mysqlbinlog hfisk-desktop-bin.000007`. Good! Because the current Relay_Master_Log_File is intact, we can with confidence stop the slave, set the binlog coordinates to Relay_Master_Log_File:Exec_Master_Log_Pos, and start the slave anew. This will purge existing relay logs and re-fetch all events which have not yet been executed.
