@@ -469,3 +469,96 @@
 			-- Continue replication
 			START SLAVE; /* https://dev.mysql.com/doc/refman/5.7/en/start-slave.html */
 			```
+
+1. "Binlog" | 360 minutes
+	1. Replication is not working because:
+		1. The slave IO thread is not running. It exited due to a fatal error while reading the contents of the binlog file hfisk-desktop-bin.000009 in an update sent by the Binlog Dump thread of the master. A run of `mysqlbinlog hfisk-desktop-bin.000009` sent "ERROR: Could not read entry at offset 466: Error in log format or read error" to stderr, which indicates corruption of hfisk-desktop-bin.000009. Due to the corruption of the binlog, there may be statements committed on the master but not on the slave. Corruption of the binlog is likely due to OS or hardware issues on the master. 
+	1. To resume operation: Re-create the slave server from a master server backup.	
+		1. On the master:
+			1. [Obtain the Replication Master Binary Log Coordinates](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/replication.html#replication-howto-masterstatus).
+				1. Flush all tables and block write statements by executing the FLUSH TABLES WITH READ LOCK statement.
+
+					```sql
+					mysql> FLUSH TABLES WITH READ LOCK;
+					```
+
+				1. _In a different mysql client session_ (e.g. open another terminal window or tab and run `mysql` there), use the SHOW MASTER STATUS statement to determine the current binary log file name and position.
+
+					```sql
+					mysql> SHOW MASTER STATUS;
+					```
+				
+					The File column shows the name of the log file and Position shows the position within the file. Record these values. You'll need them later when you are setting up the slave. They represent the replication coordinates at which the slave should begin processing new updates from the master.
+
+					If the master has been running previously without binary logging enabled, the log file name and position values displayed by SHOW MASTER STATUS will be empty. In that case, the values that you need to use later when specifying the slave's log file and position are the empty string ('') and 4.
+
+					You now have the information you need to enable the slave to start reading from the binary log in the correct place to start replication.
+			1. [Create a data snapshot using mysqldump](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/replication.html#replication-howto-mysqldump), and copy the dumpfile to the slave.
+				1. In _yet another session_ (e.g. open another terminal window to get a new shell), use mysqldump to create a dump either of all the databases you want to replicate, or of selected individual databases, and compress it into an archive, e.g.
+
+					```sh
+					shell> mysqldump --all-databases --lock-all-tables | gzip - > dbdump.sql.gz
+					```
+				
+				1. In the session/client where you acquired the read lock (above), release the lock.
+
+					```sql
+					mysql> UNLOCK TABLES;
+					```
+			
+			1. Copy the archive to the slave e.g. use rsync.
+
+				
+				```sh
+				shell> rsync -azvP dbdump.sql.gz [username]@[hostname]:[path]
+
+				```
+
+		1. IMPORTANT: Ensure no clients will access the slave while it is being recreated.	
+		1. On the slave
+			1. Stop the slave.
+
+				```sql
+				mysql> STOP SLAVE;
+				```
+
+			1. Delete the databases. 
+				1. Show the databases.
+
+					```sh
+					shell> mysql -e "SHOW DATABASES" | grep -v Database | grep -v mysql| grep -v information_schema
+					```
+
+				1. Drop the databases.
+				
+					```sql
+					mysql> DROP DATABASE a_replicated_database;
+					mysql> DROP DATABASE another_replicated_database;
+					mysql> /* drop the remaining databases, like as above */
+					```
+			
+			1. Import the dump file; e.g. use zcat to unpack the archive, and pipe the resultant SQL to a mysql client.
+
+				```sh
+				shell> zcat dbdump.sql.gz | mysql
+				```
+			
+			1. Delete the dump file if the import succeeded.
+
+				```sh
+				shell> rm dbdump.sql.gz
+				```
+			
+			1. [Configure the slave with the replication coordinates from the master](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/replication.html#replication-howto-slaveinit), using the coordinates obtained and recorded earlier.
+
+				```sql
+				mysql> CHANGE MASTER TO
+					->     MASTER_LOG_FILE='recorded_log_file_name',
+					->     MASTER_LOG_POS=recorded_log_position;
+				```
+
+			1. Start the slave threads.
+
+				```sql
+				mysql> START SLAVE;
+				```
