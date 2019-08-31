@@ -472,9 +472,10 @@
 
 1. "Binlog" | 360 minutes
 	1. Replication is not working because:
-		1. The slave IO thread is not running. It exited due to a fatal error while reading the contents of the binlog file hfisk-desktop-bin.000009 in an update sent by the Binlog Dump thread of the master. A run of `mysqlbinlog hfisk-desktop-bin.000009` sent "ERROR: Could not read entry at offset 466: Error in log format or read error" to stderr, which indicates corruption of hfisk-desktop-bin.000009. Due to the corruption of the binlog, there may be statements committed on the master but not on the slave. Corruption of the binlog is likely due to OS or hardware issues on the master. 
+		1. The slave IO thread is not running. It exited due to a fatal error while reading the contents of the binlog file hfisk-desktop-bin.000009 in an update sent by the Binlog Dump thread of the master. A run of [mysqlbinlog](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/programs.html#mysqlbinlog) i.e. `mysqlbinlog hfisk-desktop-bin.000009`, sent "ERROR: Could not read entry at offset 466: Error in log format or read error" to stderr, which indicates corruption of hfisk-desktop-bin.000009. Due to the corruption of the binlog, there may be statements committed on the master but not on the slave. Corruption of the binlog is likely due to OS or hardware issues on the master, or packet corruption i.e a network issue. 
 	1. To resume operation: Re-create the slave server from a master server backup.	
 		1. On the master:
+			1. Take backups of your databases and logs.
 			1. [Obtain the Replication Master Binary Log Coordinates](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/replication.html#replication-howto-masterstatus).
 				1. Flush all tables and block write statements by executing the FLUSH TABLES WITH READ LOCK statement.
 
@@ -516,6 +517,7 @@
 
 		1. IMPORTANT: Ensure no clients will access the slave while it is being recreated.	
 		1. On the slave
+			1. Take backups of your logs.
 			1. Stop the slave.
 
 				```sql
@@ -531,8 +533,7 @@
 
 				1. Drop the databases.
 				
-					```sql
-					mysql> DROP DATABASE a_replicated_database;
+					```sql mysql> DROP DATABASE a_replicated_database;
 					mysql> DROP DATABASE another_replicated_database;
 					mysql> /* drop the remaining databases, like as above */
 					```
@@ -562,3 +563,31 @@
 				```sql
 				mysql> START SLAVE;
 				```
+
+1. "Relay log" | 180 minutes
+	1. Replication is not working because: The slave SQL thread is not running. It aborted when it was unable to parse a relay log entry in ubuntu3-relay-bin.000003. A run of [mysqlbinlog](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/programs.html#mysqlbinlog) i.e. `mysqlbinlog ubuntu3-relay-bin.000003`, sent "ERROR: Could not read entry at offset 466: Error in log format or read error" to stderr, which indicates corruption of ubuntu3-relay-bin.000003.
+	1. To resume operation:
+	 	1. Consider that the current [Relay_Master_Log_File](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/sql-syntax.html#show-slave-status), hfisk-desktop-bin.000007, is intact. This is indicated by the absense of errors upon a run of `mysqlbinlog hfisk-desktop-bin.000007`. Good! Because the current Relay_Master_Log_File is intact, we can with confidence stop the slave, set the binlog coordinates to Relay_Master_Log_File:Exec_Master_Log_Pos, and start the slave anew. This will purge existing relay logs and re-fetch all events which have not yet been executed.
+		1. Note the value of Relay_Master_Log_File and Exec_Master_Log_Pos in the output of `SHOW SLAVE STATUS` in slave_tee.txt.		
+			1. Relay_Master_Log_File is hfisk-desktop-bin.000007.
+			1. Exec_Master_Log_Pos is 583.
+		1. On the slave:	
+			1. Stop the slave.
+
+				```
+				mysql> STOP SLAVE;
+				```
+
+			1. Change MASTER_LOG_FILE to hfisk-desktop-bin.000007 and MASTER_LOG_POS to 583.
+
+				```
+				mysql> CHANGE MASTER TO MASTER_LOG_FILE='hfisk-desktop-bin.000007', MASTER_LOG_POS=583;
+				```
+			
+			1. Start the slave.
+
+				```
+				mysql> START SLAVE;
+				```
+			
+			1. Run [SHOW SLAVE STATUS](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/sql-syntax.html#show-slave-status) a few times to observe whether Exec_Master_Log_Pos is increasing and Seconds_Behind_Master decreasing. If so, then, bravo, Bob's your uncle!
