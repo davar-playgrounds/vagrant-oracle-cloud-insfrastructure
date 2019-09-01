@@ -591,3 +591,47 @@
 				```
 			
 			1. Run [SHOW SLAVE STATUS](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/sql-syntax.html#show-slave-status) a few times to observe whether Exec_Master_Log_Pos is increasing and Seconds_Behind_Master decreasing. If so, then, bravo, Bob's your uncle!
+1. "thcr" | 180 minutes
+	1. On what line of which function did the program crash? The program crashed on the first line of the function pf2() (line 21 of thcr.c).
+
+		```sh
+		shell> gdb thcr core
+		...
+		Program terminated with signal 8, Arithmetic exception.
+		#0  0x08048617 in pf2 () at thcr.c:21
+		...
+		```
+ 	
+	1. What are the values for tc, cr and pf in the thread which crashed?
+	 	1. tc: 0
+		1. cr: 1
+		1. pf: 1
+
+			```sh
+			(gdb) info threads
+			  Id   Target Id         Frame
+			  11   LWP 20523         0xffffe410 in __kernel_vsyscall ()
+			  10   LWP 20525         0x40067800 in ?? ()
+			  9    LWP 20526         0x400aa09f in ?? ()
+			  8    LWP 20527         0x08048617 in pf2 () at thcr.c:21
+			  7    LWP 20528         0x40132b30 in ?? ()
+			  6    LWP 20529         0x40067800 in ?? ()
+			  5    LWP 20530         0x08048617 in pf2 () at thcr.c:21
+			  4    LWP 20531         0x40132b30 in ?? ()
+			  3    LWP 20532         0x40132b30 in ?? ()
+			  2    LWP 20533         0x40067800 in ?? ()
+			* 1    LWP 20524         0x08048617 in pf2 () at thcr.c:21
+			(gdb) up
+			#1  0x080486a4 in handler (arg=0xbfffdfb0) at thcr.c:53
+			53	      pf2();
+			(gdb) print ta.tc
+			$1 = 0
+			(gdb) print ta.cr
+			$2 = 1
+			(gdb) print ta.pf
+			$3 = 1
+			```
+
+ 	1. Which threads would have executed one of the pf() functions, and which function would each of these threads have executed? 
+	 	1. The threads that would have executed a pf() function are those threads for which 1 were the value of the cr member of the targ struct passed to the handler() function upon the creation of the respective thread. The value of cr would be the remainder of the division by 2 of a randomly generated integer i.e. random()%2.
+			1. Each of these threads would have executed the pf() function indicated by the case of the switch statement of the handler() function, the case for the value of the pf member of the targ struct passed to the handler() function upon the creation of the respective thread. The value of pf would be the remainder of the division by 3 of a randomly generated integer i.e. random()%3.
