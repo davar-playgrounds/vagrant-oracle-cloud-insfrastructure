@@ -116,7 +116,7 @@
 		1. [Optimize](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#statement-optimization) queries. Use [the slow query log](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#slow-query-log) to identify queries to optimize first.
 			1. Rationale: 
 				1. [Slow_queries](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Slow_queries) is 12761. This is a count of SQL statements that took more than [long_query_time](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_long_query_time) seconds to execute.
-				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, you should carefully check the indexes of your tables.
+				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, carefully check the indexes of your tables.
 				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, I think [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
 				1. [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. This is a count of internal temporary tables created by the server while executing statements. 
 					1.  Nearly half of all temporary tables were created on disk (a performance cost): [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349 while [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. 
@@ -124,7 +124,7 @@
 						1. [7.8.4. How MySQL Uses Internal Temporary Tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#internal-temporary-tables) describes the conditions under which temporary tables are created
 						1. [7.3.1.12. GROUP BY Optimization](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#group-by-optimization) describes how MySQL is able to avoid creation of temporary tables by using index access when queries are optimized.
 		1. Increase [key_buffer_size](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_key_buffer_size) to get better index handling for all reads and multiple writes.
-			1. Rationale: Key_reads/Key_read_requests (the cache miss rate) is 1327838/6786353 = 0.20, while "[[it] should normally be less than 0.01](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html)".
+			1. Rationale: Key_reads/Key_read_requests (the cache miss rate) is 1327838/6786353 = 0.20, while "[[it] should normally be less than 0.01](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html)".
 			1. Execution: 
 			    1. [Observe free memory](https://www.linuxjournal.com/article/8178) for the whole of the system.
 				1. Increase key_buffer_size by an amount corresponding to some fraction of the observed free memory.	
@@ -419,7 +419,7 @@
 		1. Transactions were rolled back due to [deadlock detection](https://dev.mysql.com/doc/refman/5.7/en/innodb-deadlock-detection.html) or [lock wait timeout](https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_lock_wait_timeout), while sorts were in progress.
 		1. An error occurred e.g. table corruption.
 	1. How to discover possible causes: 
-		1. Versions of MySQL newer than 5.5.10: Set [log_warnings](https://dev.mysql.com/doc/refman/5.5/en/server-system-variables.html#sysvar_log_warnings) to 2. 
+		1. Versions of MySQL newer than 5.5.10: Set [log_warnings](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_log_warnings) to 2. 
 			1. Messages showing the client host, user, thread, and query will be written to the error log.
 		1. All versions: Enable the general query log, and then match timestamps therein with timestamps in the error log.
 1. "Can't create a new thread" | 240 minutes
@@ -533,7 +533,8 @@
 
 				1. Drop the databases.
 				
-					```sql mysql> DROP DATABASE a_replicated_database;
+					```sql 
+					mysql> DROP DATABASE a_replicated_database;
 					mysql> DROP DATABASE another_replicated_database;
 					mysql> /* drop the remaining databases, like as above */
 					```
@@ -635,3 +636,87 @@
  	1. Which threads would have executed one of the pf() functions, and which function would each of these threads have executed? 
 	 	1. The threads that would have executed a pf() function are those threads for which 1 were the value of the cr member of the targ struct passed to the handler() function upon the creation of the respective thread. The value of cr would be the remainder of the division by 2 of a randomly generated integer i.e. random()%2.
 			1. Each of these threads would have executed the pf() function indicated by the case of the switch statement of the handler() function, the case for the value of the pf member of the targ struct passed to the handler() function upon the creation of the respective thread. The value of pf would be the remainder of the division by 3 of a randomly generated integer i.e. random()%3.
+1. "City is crashed" | N minutes
+	1. The problem is: The table City is corrupted. City is likely using the MyISAM engine, because: for tables using the InnoDB engine, [in most situations... the recovery process happens automatically](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-recovery.html). And, also: [if CHECK TABLE finds a problem for an InnoDB table, the server shuts down to prevent error propagation. Details of the error will be written to the error log](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/check-table.html); so, if the error log contains no messages indicating that mysqld shut down upon the run of `check table`, then MyISAM is indicated.
+		1. First, discover which engine is used by City (most likely MyISAM).
+
+			```sql
+			mysql> SELECT TABLE_NAME, ENGINE
+				-> FROM information_schema.TABLES
+				-> WHERE TABLE_SCHEMA LIKE 'world' AND TABLE_NAME = 'City' AND ENGINE IS NOT NULL;
+			```
+	
+		1. Then, possible solutions are:
+			1. For the most likely case that City uses MyISAM:
+				1. Locate the "datadir" i.e. the location of database files, e.g..
+
+					```sql
+					mysql> SELECT @@datadir;
+					+-----------------+
+					| @@datadir       |
+					+-----------------+
+					| /var/lib/mysql/ |
+					+-----------------+
+					```
+
+				1. Ensure the database directory and table files are readable and writable by you and by the user mysqld runs as (often username "mysql").
+				1. Stop mysqld.
+				1. Stage One: Try an easy safe repair.	
+					1. Make a backup of the data file, City.MYD, e.g.
+
+						```sh
+						shell> cp /var/lib/mysql/World/City.MYD ~/
+						```
+
+					1. Use "[myisamchk](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/myisamchk.html) -r tbl_name" (-r means “recovery mode”). This removes incorrect rows and deleted rows from the data file and reconstructs the index file. For example:
+
+						```sh
+						myisamchk -r /var/lib/mysql/World/City
+						```
+
+					1. If the preceding step fails, use "myisamchk --safe-recover tbl_name". Safe recovery mode uses an old recovery method that handles a few cases that regular recovery mode does not (but is slower). For example:
+
+						```sh
+						myisamchk --safe-recover /var/lib/mysql/World/City
+						```
+
+					> __Note__
+					> To make a repair operation to go much faster, set the values of the sort_buffer_size and key_buffer_size variables each to about 25% of your available memory when running myisamchk.
+					1. If you get unexpected errors when repairing (such as out of memory errors), or if myisamchk crashes, continue to Stage Two, below.
+				1. Stage Two: Difficult repair
+					1. You'll reach this stage only if the first 16KB block in the index file is destroyed or contains incorrect information, or if the index file is missing. In this case, it is necessary to create a new index file. Do so as follows:
+						1. Move the data file to a safe place, e.g.
+
+						```sh
+						shell> mkdir ~/safe && mv /var/lib/mysql/World/City.MYD ~/safe/
+						```
+						
+						1. If you are using replication, stop it.	
+						1. Use the table description file to create new (empty) data and index files, e.g.
+
+							```sh
+							shell> mysql World # Run the mysql client and use the World database
+							```
+
+							```sql
+							mysql> SET autocommit=1; -- Set autocommit to TRUE
+							mysql> TRUNCATE TABLE City; -- Create the new files
+							mysql> quit
+							```
+
+						1. Copy the old data file back onto the newly created data file (Do not just move the old file back onto the new file. Retain a copy in case something goes wrong.), e.g.
+
+							```sh
+							shell> cp -i ~/safe/City.MYD /var/lib/mysql/World/
+							```
+
+						1. If you are using replication, start it.	
+						1. Go back to Stage One. `myisamchk -r -q /var/lib/mysql/World/City` will likely work this time.
+					1. Stage Three: Very difficult repair
+						1. You'll reach this stage only if the .frm description file has also crashed. That is not expected to happen, because the description file is not changed after the table is created:
+							1. Restore the description file from a backup and go back to Stage Two. You can also restore the index file and go back to Stage One. In the latter case, start with `myisamchk -r /var/lib/mysql/World/City`.
+							1. If you do not have a backup but know exactly how the table was created, create a copy of the table in another database. Remove the new data file, and then move the .frm description and .MYI index files from the other database to your crashed database. This gives you new description and index files, but leaves the .MYD data file alone. Go back to Stage One and attempt to reconstruct the index file.
+			1. For the very unlikely case that City uses InnoDB:
+				1. If you experience corruption with the InnoDB storage engine, something is seriously wrong; investigate it right away. InnoDB simply shouldn’t corrupt. Its design makes it very resilient to corruption. Corruption is evidence of either a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely). If you experience data corruption with InnoDB:
+					1. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could return. 
+					1. You can repair the data by putting InnoDB into forced recovery mode with the innodb_force_recovery parameter; see [the MySQL manual for details](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html).
