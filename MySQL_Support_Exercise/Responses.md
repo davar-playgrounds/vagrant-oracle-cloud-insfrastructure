@@ -687,9 +687,9 @@
 					1. You'll reach this stage only if the first 16KB block in the index file is destroyed or contains incorrect information, or if the index file is missing. In this case, it is necessary to create a new index file. Do so as follows:
 						1. Move the data file to a safe place, e.g.
 
-						```sh
-						shell> mkdir ~/safe && mv /var/lib/mysql/World/City.MYD ~/safe/
-						```
+							```sh
+							shell> mkdir ~/safe && mv /var/lib/mysql/World/City.MYD ~/safe/
+							```
 						
 						1. If you are using replication, stop it.	
 						1. Use the table description file to create new (empty) data and index files, e.g.
