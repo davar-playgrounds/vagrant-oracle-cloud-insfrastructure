@@ -660,8 +660,13 @@
 					```
 
 				1. Ensure the database directory and table files are readable and writable by you and by the user mysqld runs as (often username "mysql").
-				1. Stop mysqld.
 				1. Stage One: Try an easy safe repair.	
+					1. Stop mysqld e.g.
+
+						```
+						shell> sudo systemctl stop mysqld
+						```
+
 					1. Make a backup of the data file, City.MYD, e.g.
 
 						```sh
@@ -671,13 +676,13 @@
 					1. Use "[myisamchk](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/myisamchk.html) -r tbl_name" (-r means “recovery mode”). This removes incorrect rows and deleted rows from the data file and reconstructs the index file. For example:
 
 						```sh
-						myisamchk -r /var/lib/mysql/World/City
+						shell> sudo myisamchk -r /var/lib/mysql/World/City
 						```
 
 					1. If the preceding step fails, use "myisamchk --safe-recover tbl_name". Safe recovery mode uses an old recovery method that handles a few cases that regular recovery mode does not (but is slower). For example:
 
 						```sh
-						myisamchk --safe-recover /var/lib/mysql/World/City
+						shell> sudo myisamchk --safe-recover /var/lib/mysql/World/City
 						```
 
 					> __Note__
@@ -691,11 +696,17 @@
 							shell> mkdir ~/safe && mv /var/lib/mysql/World/City.MYD ~/safe/
 							```
 						
-						1. If you are using replication, stop it.	
+						1. If you are using replication, stop it.
+						1. Start mysqld if it's not already running.	
+
+							```
+							shell> sudo systemctl stop mysqld
+							```
+						
 						1. Use the table description file to create new (empty) data and index files, e.g.
 
 							```sh
-							shell> mysql World # Run the mysql client and use the World database
+							shell> mysql -uroot -p World # Run the mysql client and use the World database
 							```
 
 							```sql
@@ -710,13 +721,99 @@
 							shell> cp -i ~/safe/City.MYD /var/lib/mysql/World/
 							```
 
-						1. If you are using replication, start it.	
 						1. Go back to Stage One. `myisamchk -r -q /var/lib/mysql/World/City` will likely work this time.
-					1. Stage Three: Very difficult repair
-						1. You'll reach this stage only if the .frm description file has also crashed. That is not expected to happen, because the description file is not changed after the table is created:
-							1. Restore the description file from a backup and go back to Stage Two. You can also restore the index file and go back to Stage One. In the latter case, start with `myisamchk -r /var/lib/mysql/World/City`.
-							1. If you do not have a backup but know exactly how the table was created, create a copy of the table in another database. Remove the new data file, and then move the .frm description and .MYI index files from the other database to your crashed database. This gives you new description and index files, but leaves the .MYD data file alone. Go back to Stage One and attempt to reconstruct the index file.
+				1. Stage Three: Very difficult repair
+					1. You'll reach this stage only if the .frm description file has also crashed. That is not expected to happen, because the description file is not changed after the table is created.
+						1. Restore the .frm description file from a backup and go back to Stage Two. You can also restore the .MYI index file and go back to Stage One. In the latter case, start with `myisamchk -r /var/lib/mysql/World/City`.
+						1. If you do not have a backup but know exactly how the table was created, create a copy of the table in another database. Remove the new data file, and then move the .frm description and .MYI index files from the other database to your crashed database. This gives you new description and index files, but leaves the .MYD data file alone. Go back to Stage One and attempt to reconstruct the index file.
 			1. For the very unlikely case that City uses InnoDB:
 				1. If you experience corruption with the InnoDB storage engine, something is seriously wrong. Investigate it right away. InnoDB simply shouldn’t corrupt. Its design makes it very resilient to corruption. Corruption is evidence of either a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely). If you experience data corruption with InnoDB:
 					1. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could return. 
 					1. You can repair the data by putting InnoDB into forced recovery mode with the innodb_force_recovery parameter; see [the MySQL manual for details](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html).
+1. "Missing index file" | 240 minutes
+	1. The problem is: The index file, City.MYI, was corrupted and then removed during efforts to repair the table. 
+	1. Possible solutions are:
+	 	1. Stage One: Easy repair	
+			1. Create a new index file by taking the following steps.
+				1. If you are using replication, stop it.
+				1. Locate the "datadir" i.e. the location of database files, e.g.
+
+					```sql
+					mysql> SELECT @@datadir;
+					+-----------------+
+					| @@datadir       |
+					+-----------------+
+					| /var/lib/mysql/ |
+					+-----------------+
+					```
+				
+				1. Ensure the database directory and table files are readable and writable by you and by the user mysqld runs as, e.g.
+
+					```sh
+					shell> MY_USER=`whoami` && \
+					sudo chown $MY_USER:mysql /var/lib/mysql/World /var/lib/mysql/World/* && \
+					sudo chmod 0775 /var/lib/mysql/World && \
+					sudo chmod 0660 /var/lib/mysql/World/*
+					```
+
+				1. Move the data file to a safe place, e.g. 
+
+					```sh
+					shell> mkdir ~/safe && mv /var/lib/mysql/World/City.MYD ~/safe/
+					```
+				
+				1. Use the table description file to create new (empty) data and index files, e.g.
+
+					```sh
+					shell> mysql World # Run the mysql client and use the World database
+					```
+
+					```sql
+					mysql> SET autocommit=1; -- Set autocommit to TRUE
+					mysql> TRUNCATE TABLE City; -- Create the new files
+					mysql> quit
+					```
+					
+					1. Copy the old data file back onto the newly created data file (Do not just move the old file back onto the new file. Retain a copy in case something goes wrong.), e.g.
+
+						```sh
+						shell> sudo cp -i ~/safe/City.MYD /var/lib/mysql/World/
+						```
+						
+					1. Ensure the data file and index file are readable and writable by you and by the user mysqld runs as, e.g.
+
+						```sh
+						shell> sudo chown -R vagrant:mysql /var/lib/mysql/World/ && sudo chmod 0664 /var/lib/mysql/World/* 
+						```
+				
+				1. Make a backup of the data file, City.MYD, e.g.
+
+					```sh
+					shell> cp /var/lib/mysql/World/City.MYD ~/
+					```
+
+				1. Stop mysqld.
+
+					```
+					shell> sudo systemctl stop mysqld
+					```
+				
+				1. Use "[myisamchk](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/myisamchk.html) -r tbl_name" (-r means “recovery mode”). This removes incorrect rows and deleted rows from the data file and reconstructs the index file. For example:
+
+					```sh
+					shell> sudo myisamchk -r /var/lib/mysql/World/City
+					```
+
+				1. If the preceding step fails, use "myisamchk --safe-recover tbl_name". Safe recovery mode uses an old recovery method that handles a few cases that regular recovery mode does not (but is slower). For example:
+
+					```sh
+					shell> sudo myisamchk --safe-recover /var/lib/mysql/World/City
+					```
+
+				> __Note__
+				> To make a repair operation to go much faster, set the values of the sort_buffer_size and key_buffer_size variables each to about 25% of your available memory when running myisamchk.
+				1. If you get unexpected errors when repairing (such as out of memory errors), or if myisamchk crashes, continue to Stage Two, below.
+		1. Stage Two: Difficult repair
+			1. You'll reach this stage only if the .frm description file has also crashed. That is not expected to happen, because the description file is not changed after the table is created.
+				1. Restore the .frm description and .MYI index file from a backup, and go back to Stage One.
+				1. If you do not have a backup but know exactly how the table was created, create a copy of the table in another database. Remove the new data file, and then move the .frm description and .MYI index files from the other database to your crashed database. This gives you new description and index files, but leaves the .MYD data file alone. Go back to Stage One and attempt to reconstruct the index file.
