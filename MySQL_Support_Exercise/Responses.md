@@ -731,7 +731,7 @@
 					1. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could return. 
 					1. You can repair the data by putting InnoDB into forced recovery mode with the innodb_force_recovery parameter; see [the MySQL manual for details](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html).
 1. "Missing index file" | 240 minutes
-	1. The problem is: The index file, City.MYI, was corrupted and then removed during efforts to repair the table. 
+	1. The problem is: The index file, City.MYI, was corrupted; hence, error 126. The DBA then attempted a repair and was unsuccessful; hence, error 144. Subsequently, the index file City.MYI went missing, which is the problem and the reason for error 1017. 
 	1. Possible solutions are:
 	 	1. Stage One: Easy repair	
 			1. Create a new index file by taking the following steps.
