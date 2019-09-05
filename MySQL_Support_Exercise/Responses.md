@@ -116,8 +116,8 @@
 		1. [Optimize](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/optimization.html#statement-optimization) queries. Use [the slow query log](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#slow-query-log) to identify queries to optimize first.
 			1. Rationale: 
 				1. [Slow_queries](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Slow_queries) is 12761. This is a count of SQL statements that took more than [long_query_time](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#sysvar_long_query_time) seconds to execute.
-				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, carefully check the indexes of your tables.
-				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that your tables are not properly indexed or that your queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, I think [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
+				1. [Select_full_join](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Select_full_join) is 1867. This is a count of joins that perform table scans because they do not use indexes. If this value is not 0, carefully check the indexes of the tables.
+				1. [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) is 23675456. This value is high if you are doing a lot of table scans. Generally this suggests that the tables are not properly indexed or that the queries are not written to take advantage of the indexes you have. The ratio of Handler_read_rnd_next to [Questions](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Questions) (the total number of statements sent to the server by clients) is 23675456:23167761 i.e. ~1:1; so, I think [Handler_read_rnd_next](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Handler_read_rnd_next) can be considered high. 
 				1. [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. This is a count of internal temporary tables created by the server while executing statements. 
 					1.  Nearly half of all temporary tables were created on disk (a performance cost): [Created_tmp_disk_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_disk_tables) is 123349 while [Created_temp_tables](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/server-administration.html#statvar_Created_tmp_tables) is 256798. 
 					1. Creation of temporary tables can be avoided by optimizing queries:
@@ -414,7 +414,7 @@
 	1. Possible causes are:
 		1. The temporary file for use by [filesort](https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html#order-by-filesort) could not be opened due to a lack of disk space on the filesystem containing the directory to which [tmpdir](https://dev.mysql.com/doc/refman/5.7/en/temporary-files.html) points.
 			1. The dearth of disk space could be due to scanning of, or the return of a very large data set from,  a very large table or join of tables. Use of [the slow query log](https://dev.mysql.com/doc/refman/5.7/en/slow-query-log.html) and [EXPLAIN to optimize queries and indexes](https://dev.mysql.com/doc/refman/5.7/en/using-explain.html) could help resolve the issue in that case.  
-		1. A service managing multiple connections to mysqld e.g. a webserver, stopped, dropping the connections, while sorts were in progress.
+		1. A service managing multiple connections to MySQL Server e.g. a webserver, stopped, dropping the connections, while sorts were in progress.
 		1. Users (persons or bots) [killed queries](https://dev.mysql.com/doc/refman/5.7/en/kill.html ) while sorts were in progress.
 		1. Transactions were rolled back due to [deadlock detection](https://dev.mysql.com/doc/refman/5.7/en/innodb-deadlock-detection.html) or [lock wait timeout](https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_lock_wait_timeout), while sorts were in progress.
 		1. An error occurred e.g. table corruption.
@@ -424,9 +424,9 @@
 		1. All versions: Enable the general query log, and then match timestamps therein with timestamps in the error log.
 1. "Can't create a new thread" | 240 minutes
 	1. Possible causes:
-		1. The operating system ("system") user that mysqld is running as (often "mysql") has reached the limit of processes or file descriptors afforded to the user by the system.
-			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) may be greater than the limit of processes afforded to the user that mysqld runs as (a user-level limit). 
-			1. The value of [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the limit of file descriptors afforded to the user that mysqld runs as (a user-level limit).
+		1. The operating system ("system") user that MySQL Server is running as (often "mysql") has reached the limit of processes or file descriptors afforded to the user by the system.
+			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) may be greater than the limit of processes afforded to the user that MySQL Server runs as (a user-level limit). 
+			1. The value of [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the limit of file descriptors afforded to the user that MySQL Server runs as (a user-level limit).
 			1. The value of [max_connections](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_max_connections) or [open_files_limit](https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_open_files_limit) may be greater than the respective system-level limit.
 			1. The way to view and set limits varies across operating systems. On Oracle Linux:
 				1. Limits for a user, for example a user named "mysql", can be seen by running [su mysql](https://www.unix.com/man-page/centos/7/su) (may require [sudo](https://www.unix.com/man-page/centos/7/sudo)), followed by [ulimit](https://www.unix.com/man-page/centos/7/ulimit); like: 
@@ -441,7 +441,7 @@
 				1. Corresponding system-level limits can be seen by running [sysctl](https://www.unix.com/man-page/centos/7/sysctl/), and are set in [/etc/sysctl.conf](https://www.unix.com/man-page/centos/5/sysctl.conf/).		
 				1. Changes to /etc/security/limits.conf, /etc/security/limits.d/*.conf, and /etc/sysctl.conf require a reboot to take effect. Log out and back in before rebooting so the shell will have the new limits when the reboot operation is initiated.
 				1. __Important!__: Services that are started by Systemd do not use PAM for login, so the limits in /etc/security/limits.conf and /etc/security/limits.d/\*.conf are ignored in that case! 
-					1. Hence, to modify a user-level limit for mysql running as a Systemd service, define the limit in the Systemd service definition file for mysqld, /usr/lib/systemd/system/mysqld.service, _in addition to setting it in /etc/security/limits.d/*.conf_.	
+					1. Hence, to modify a user-level limit for mysql running as a Systemd service, define the limit in the Systemd service definition file for MySQL Server, /usr/lib/systemd/system/mysqld.service, _in addition to setting it in /etc/security/limits.d/*.conf_.	
 						1. Add line(s) for the limit(s) to the [Service] section, e.g.
 
 						
@@ -455,7 +455,7 @@
 
 					1. Reload the Systemd configuration by running `systemctl daemon-reload` (may require sudo).
 
-		1. mysqld consumed all available system memory i.e., roughly, the size in memory of "buffers shared by all threads + per-thread buffers * max_connections" exceeded the free memory of the system.
+		1. The MySQL Server consumed all available system memory i.e., roughly, the size in memory of "buffers shared by all threads + per-thread buffers * max_connections" exceeded the free memory of the system.
 1. "Different Errors on Master and Slave" | 180 minutes
 	1. Identify
 		1. What happened on the master: The query was killed. The statement was put into the binlog, along with error 1317.
@@ -475,7 +475,7 @@
 		1. The slave IO thread is not running. It exited due to a fatal error while reading the contents of the binlog file hfisk-desktop-bin.000009 in an update sent by the Binlog Dump thread of the master. A run of [mysqlbinlog](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/programs.html#mysqlbinlog) i.e. `mysqlbinlog hfisk-desktop-bin.000009`, sent "ERROR: Could not read entry at offset 466: Error in log format or read error" to stderr, which indicates corruption of hfisk-desktop-bin.000009. Due to the corruption of the binlog, there may be statements committed on the master but not on the slave. Corruption of the binlog is likely due to OS or hardware issues on the master, or packet corruption i.e a network issue. 
 	1. To resume operation: Re-create the slave server from a master server backup.	
 		1. On the master:
-			1. Take backups of your databases and logs.
+			1. Take backups of the databases and logs.
 			1. [Obtain the Replication Master Binary Log Coordinates](https://docs.oracle.com/cd/E19078-01/mysql/mysql-refman-5.0/replication.html#replication-howto-masterstatus).
 				1. Flush all tables and block write statements by executing the FLUSH TABLES WITH READ LOCK statement.
 
@@ -637,7 +637,7 @@
 	 	1. The threads that would have executed a pf() function are those threads for which 1 were the value of the cr member of the targ struct passed to the handler() function upon the creation of the respective thread. The value of cr would be the remainder of the division by 2 of a randomly generated integer i.e. random()%2.
 			1. Each of these threads would have executed the pf() function indicated by the case of the switch statement of the handler() function, the case for the value of the pf member of the targ struct passed to the handler() function upon the creation of the respective thread. The value of pf would be the remainder of the division by 3 of a randomly generated integer i.e. random()%3.
 1. "City is crashed" | 240 minutes
-	1. The problem is: The table City is corrupted. City is likely using the MyISAM engine, because: for tables using the InnoDB engine, [in most situations... the recovery process happens automatically](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-recovery.html). And, also: [if CHECK TABLE finds a problem for an InnoDB table, the server shuts down to prevent error propagation. Details of the error will be written to the error log](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/check-table.html); so, if the error log contains no messages indicating that mysqld shut down upon the run of `check table`, then MyISAM is indicated.
+	1. The problem is: The table City is corrupted. City is likely using the MyISAM engine, because: for tables using the InnoDB engine, [in most situations... the recovery process happens automatically](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-recovery.html). And, also: [if CHECK TABLE finds a problem for an InnoDB table, the server shuts down to prevent error propagation. Details of the error will be written to the error log](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/check-table.html); so, if the error log contains no messages indicating that MySQL Server shut down upon the run of `check table`, then MyISAM is indicated.
 		1. First, discover which engine is used by City (most likely MyISAM).
 
 			```sql
@@ -659,9 +659,9 @@
 					+-----------------+
 					```
 
-				1. Ensure the database directory and table files are readable and writable by you and by the user mysqld runs as (often username "mysql").
+				1. Ensure the database directory and table files are readable and writable by you and by the user MySQL Server runs as (often username "mysql").
 				1. Stage One: Try an easy safe repair.	
-					1. Stop mysqld e.g.
+					1. Stop MySQL Server e.g.
 
 						```
 						shell> sudo systemctl stop mysqld
@@ -697,7 +697,7 @@
 							```
 						
 						1. If you are using replication, stop it.
-						1. Start mysqld if it's not already running.	
+						1. Start MySQL Server if it's not already running.	
 
 							```
 							shell> sudo systemctl stop mysqld
@@ -747,7 +747,7 @@
 					+-----------------+
 					```
 				
-				1. Ensure the database directory and table files are readable and writable by you and by the user mysqld runs as, e.g.
+				1. Ensure the database directory and table files are readable and writable by you and by the user MySQL Server runs as, e.g.
 
 					```sh
 					shell> MY_USER=`whoami` && \
@@ -780,7 +780,7 @@
 						shell> sudo cp -i ~/safe/City.MYD /var/lib/mysql/World/
 						```
 						
-					1. Ensure the data file and index file are readable and writable by you and by the user mysqld runs as, e.g.
+					1. Ensure the data file and index file are readable and writable by you and by the user MySQL Server runs as, e.g.
 
 						```sh
 						shell> sudo chown -R vagrant:mysql /var/lib/mysql/World/ && sudo chmod 0664 /var/lib/mysql/World/* 
@@ -792,7 +792,7 @@
 					shell> cp /var/lib/mysql/World/City.MYD ~/
 					```
 
-				1. Stop mysqld.
+				1. Stop MySQL Server.
 
 					```
 					shell> sudo systemctl stop mysqld
@@ -817,3 +817,182 @@
 			1. You'll reach this stage only if the .frm description file has also crashed. That is not expected to happen, because the description file is not changed after the table is created.
 				1. Restore the .frm description and .MYI index file from a backup, and go back to Stage One.
 				1. If you do not have a backup but know exactly how the table was created, create a copy of the table in another database. Remove the new data file, and then move the .frm description and .MYI index files from the other database to your crashed database. This gives you new description and index files, but leaves the .MYD data file alone. Go back to Stage One and attempt to reconstruct the index file.
+1. "Clustered index corruption" | 300 minutes
+	1. The problem is: A hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely) corrupted an InnoDB [page](https://dev.mysql.com/doc/internals/en/innodb-page-structure.html) that my be a primary index i.e. a [clustered index](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-index-types.html) of the "address" table of the "cand" database. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could recur. 
+	1. Possible solutions to the current data corruption are:
+		1. Stop MySQL Server if it's running, _back up data and log files_, restart MySQL Server, and: repair the table by executing an ALTER TABLE, else recover data from existing tables, else stop MySQL Server and recover data from a backup.
+			1. Stop MySQL Server, e.g.
+
+				```sh
+				shell> sudo systemctl stop mysqld
+				```
+		
+			1. Back up data and log files.
+				1. Make a local backup of ibdata1, using two methods; and of ibd_log using only one method, e.g.
+
+					```sh
+					shell> mkdir ~/innodb_bak
+					shell> cd /var/lib/mysql
+					shell> dd if=ibdata1 of=ibdata1.bak conv=noerror
+					shell> cp -p ./ibdata* ~/innodb_bak/
+					shell> cp -p ./ib_log* ~/innodb_bak/
+					```
+				
+				1. Make a full copy of the mysql directory, or at least of databases that contain InnoDB tables; e.g.
+					1. Make a copy of the full mysql folder. 
+					
+						```sh
+						shell> cp -Rp /var/lib/mysql{,_orig} # Copy to /var/lib/mysql to /var/lib/mysql_orig 
+						```
+
+					1. Or, if it is impractical to back up the entire mysql folder, then at least find directories that contain .ibd files and copy them to the backup folder, e.g.
+
+						```sh 
+						shell> DATADIR=/var/lib/mysql
+						shell> find $DATADIR -type f -name *.ibd \ # find files ending in .ibd
+						| awk -F/ '{print $(NF-1)}' \ # "print" the directory part of the path
+						| sort | uniq | xargs -I {} cp -Rp $DATADIR/{} /root/innodb_bak # copy the unique directories to the backup folder
+						```
+
+				1. Start MySQL Server and perform a mysqldump.
+
+					1. Start MySQL Server, e.g.
+
+						```
+						shell> sudo systemctl start mysqld
+						``` 
+					
+						If MySQL Server crashes, set [innodb_force_recovery](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html) to 1, and then start MySQL Server, e.g.
+
+						```sh
+						shell> mode=1; sed -i "/^\[mysqld\]/{N;s/$/\ninnodb_force_recovery=$mode/}" /etc/my.cnf #TODO: augtool
+						shell> sudo systemctl start mysqld	
+						```
+
+						If MySQL Server crashes, set innodb_force_recovery to 2, and then start MySQL Server, e.g. 
+
+						```sh
+						shell> mode=2; sed -i "/^\[mysqld\]/{N;s/$/\ninnodb_force_recovery=$mode/}" /etc/my.cnf #TODO: augtool
+						shell> sudo systemctl start mysqld	
+						```
+
+						...and so on, up to mode 6, until MySQL Server starts and remains running.
+						
+						[If you are able to dump your tables with an innodb_force_recovery value of 3 or less, then you are relatively safe that only some data on corrupt individual pages is lost. A value of 4 or greater is considered dangerous because data files can be permanently corrupted. A value of 6 is considered drastic because database pages are left in an obsolete state, which in turn may introduce more corruption into B-trees and other database structures](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html).
+						
+						If MySQL Server won't run even while [innodb_force_recovery](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html) mode is 6, then skip to "Restore the database from a dump", below.
+
+					1. When/if MySQL Server runs without crashing, then perform a mysqldump, for example as in the code block below. Else, if MySQL Server won't run even while innodb_force_recovery mode is 6, then skip to "Restore the database from a dump", below. 
+
+						```sh
+						shell> sudo systemctl mysqld start	
+						shell> mysqldump --single-transaction -AER > ~/dump_strans.sql
+						shell> mysqldump -AER > ~/dump.sql
+						```
+
+					1. Check the dump file(s) to ensure there's not only table structure, but data too.
+
+					__Note__: If you're dealing with file-system corruption; back up the data and log files to another disk drive, if available, or even to a remote host.  
+				
+			1. Repair the table by running ALTER TABLE, altering the table to use the same storage engine it currently uses. [ALTER TABLE rebuilds the table if ENGINE is specified](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/alter-table.html). For example:
+
+				```sql
+				mysql> use cand;
+				mysql> ALTER TABLE address ENGINE=INNODB;
+				```
+				
+				Upon completion of ALTER TABLE, check the table for corruption.
+
+				```sql
+				mysql> CHECK TABLE cand.address;
+				```
+
+				If the results of CHECK TABLE do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
+				
+				Else...
+
+			1. Restore the table with CREATE .. LIKE and SELECT .. INTO.
+
+				1. Create the replacement table, and SELECT .. INTO it from the original.
+				
+					```sql
+					mysql> USE cand;
+					mysql> CREATE TABLE address_recovered LIKE address;
+					mysql> INSERT INTO address_recovered SELECT * FROM address;
+					```
+
+				1. Drop the original table, and change the "_recovered" table name back to the original.
+
+					```sql
+					mysql> DROP cand.address;
+					mysql> RENAME TABLE cand.address_recovered TO cand.address;
+					```
+
+				1. Check the table for corruption.
+
+					```sql
+					mysql> CHECK TABLE cand.address;
+					```
+				
+					If `CHECK TABLE` results do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
+					
+					Else...
+
+			1. Restore the database from a dump, and recreate the ibdata and ib_log files.
+				1. Perform a dump of the database, for example as in the code block below. If you have a dump taken previously, skip to "Drop the cand database", below. 
+
+					```sh
+					shell> mysqldump -ER cand > ~/recovery_dump_cand.sql
+					```
+				
+				1. Drop the cand database e.g.
+
+					```sql
+					mysql> SET FOREIGN_KEY_CHECKS=0;
+					mysql> DROP DATABASE cand;
+					```
+
+				1. Disable innodb_fast_shutdown to ensure a clean full shutdown is performed, and stop MySQL Server, e.g.
+
+					```sh
+					shell> mysql -e "SET GLOBAL innodb_fast_shutdown = 0"
+					shell> sudo systemctl stop mysqld
+					```
+
+				1. Relocate the InnoDB data and redo log files e.g.
+
+					```sh
+					shell> sudo mv /var/lib/mysql/ibdata* ~/
+					shell> sudo mv /var/lib/mysql/ib_log* ~/
+					```
+
+				1. Remove the innodb_force_recover entr(ies) from /etc/my.cnf.
+
+					```sh
+					shell> sed -i '/innodb_force_recovery/d' /etc/my.cnf
+					```
+				
+				1. Start mysqld and monitor the logs to ensure that it comes online and initializes the data and redo log files.
+
+					```sh
+					 shell> sudo systemctl start mysqld 
+					 shell> sudo tail -f /var/lib/mysql/`hostname`.err
+					```
+
+				1. Restore the dump when you're confident MySQL Server is ready to import.
+
+					```sql
+					shell> mysql < ~/recovery_dump_cand.sql
+					```
+				
+				1. Check the table for corruption.
+
+					```sql
+					mysql> CHECK TABLE cand.address;
+					```
+				
+					If the results of CHECK TABLE do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
+
+1. "Secondary index corruption" | 15 minutes
+	1. The problem is: A hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely) corrupted an InnoDB [page](https://dev.mysql.com/doc/internals/en/innodb-page-structure.html) that my be a [secondary index](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-index-types.html) of the "city" table of the "world" database. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could recur. 
+	1. Possible solutions to the current data corruption are the same as for clustered index corruption, above.
