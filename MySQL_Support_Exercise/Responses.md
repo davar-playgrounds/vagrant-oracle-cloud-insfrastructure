@@ -998,4 +998,4 @@
 
 1. "Secondary index corruption" | 15 minutes
 	1. The problem is: A hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely) corrupted an InnoDB [page](https://dev.mysql.com/doc/internals/en/innodb-page-structure.html) that my be a [secondary index](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-index-types.html) of the "city" table of the "world" database. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could recur. 
-	1. Possible solutions to the current data corruption are the same as for "Clustered index corruption", above. Because the corruption is of a secondary index (in contrast to a clustered index), it is likely that least demanding solution i.e. the ALTER TABLE solution will repair the index.
+	1. Possible solutions to the current data corruption are the same as for "Clustered index corruption", above. Because the corruption is of a secondary index (in contrast to a clustered index), it is likely that the least demanding solution i.e. the ALTER TABLE solution will repair the index.
