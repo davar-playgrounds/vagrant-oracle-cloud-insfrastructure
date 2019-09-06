@@ -817,10 +817,10 @@
 			1. You'll reach this stage only if the .frm description file has also crashed. That is not expected to happen, because the description file is not changed after the table is created.
 				1. Restore the .frm description and .MYI index file from a backup, and go back to Stage One.
 				1. If you do not have a backup but know exactly how the table was created, create a copy of the table in another database. Remove the new data file, and then move the .frm description and .MYI index files from the other database to your crashed database. This gives you new description and index files, but leaves the .MYD data file alone. Go back to Stage One and attempt to reconstruct the index file.
-1. "Clustered index corruption" | 300 minutes
+1. "Clustered index corruption" | 360 minutes
 	1. The problem is: A hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely) corrupted an InnoDB [page](https://dev.mysql.com/doc/internals/en/innodb-page-structure.html) that my be a primary index i.e. a [clustered index](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-index-types.html) of the "address" table of the "cand" database. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could recur. 
 	1. Possible solutions to the current data corruption are:
-		1. Stop MySQL Server if it's running, _back up data and log files_, restart MySQL Server, and: repair the table by executing an ALTER TABLE, else recover data from existing tables, else stop MySQL Server and recover data from a backup.
+		1. Stop MySQL Server if it's running, _back up data and log files_, restart MySQL Server, and: repair the table by executing an ALTER TABLE, else recover data from existing tables into replacement tables, else stop MySQL Server and recover data from a backup.
 			1. Stop MySQL Server, e.g.
 
 				```sh
@@ -828,13 +828,13 @@
 				```
 		
 			1. Back up data and log files.
-				1. Make a local backup of ibdata1, using two methods; and of ibd_log using only one method, e.g.
+				1. Make a local backup of ibdata and ibd_log files
 
 					```sh
-					shell> mkdir ~/innodb_bak
 					shell> cd /var/lib/mysql
-					shell> dd if=ibdata1 of=ibdata1.bak conv=noerror
-					shell> cp -p ./ibdata* ~/innodb_bak/
+					shell> dd if=ibdata1 of=ibdata1.bak conv=noerror 
+					shell> mkdir ~/innodb_bak
+					shell> cp -p ./ibdata* ~/innodb_bak/ # not redundant, use the paranoia!
 					shell> cp -p ./ib_log* ~/innodb_bak/
 					```
 				
@@ -872,6 +872,7 @@
 						If MySQL Server crashes, set innodb_force_recovery to 2, and then start MySQL Server, e.g. 
 
 						```sh
+						shell> sed -i '/innodb_force_recovery/d' /etc/my.cnf # Delete the existing innodb_force_recovery config 	
 						shell> mode=2; sed -i "/^\[mysqld\]/{N;s/$/\ninnodb_force_recovery=$mode/}" /etc/my.cnf #TODO: augtool
 						shell> sudo systemctl start mysqld	
 						```
@@ -880,14 +881,14 @@
 						
 						[If you are able to dump your tables with an innodb_force_recovery value of 3 or less, then you are relatively safe that only some data on corrupt individual pages is lost. A value of 4 or greater is considered dangerous because data files can be permanently corrupted. A value of 6 is considered drastic because database pages are left in an obsolete state, which in turn may introduce more corruption into B-trees and other database structures](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html).
 						
-						If MySQL Server won't run even while [innodb_force_recovery](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html) mode is 6, then skip to "Restore the database from a dump", below.
+						If MySQL Server won't run even while [innodb_force_recovery](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/forcing-innodb-recovery.html) mode is 6, then skip to "Restore the databas(es) from a dump", below.
 
-					1. When/if MySQL Server runs without crashing, then perform a mysqldump, for example as in the code block below. Else, if MySQL Server won't run even while innodb_force_recovery mode is 6, then skip to "Restore the database from a dump", below. 
+					1. When/if MySQL Server runs without crashing, then perform a mysqldump, for example as in the code block below. Else, if MySQL Server won't run even while innodb_force_recovery mode is 6, then skip to "Restore the databas(es) from a dump", below. 
 
 						```sh
 						shell> sudo systemctl mysqld start	
-						shell> mysqldump --single-transaction -AER > ~/dump_strans.sql
-						shell> mysqldump -AER > ~/dump.sql
+						shell> #mysqldump --single-transaction -AER > ~/dump_strans.sql # If _all_ tables use InnoDB
+						shell> mysqldump -AER > ~/dump.sql # Do both, if _all_ tables use InnoDB
 						```
 
 					1. Check the dump file(s) to ensure there's not only table structure, but data too.
@@ -896,19 +897,21 @@
 				
 			1. Repair the table by running ALTER TABLE, altering the table to use the same storage engine it currently uses. [ALTER TABLE rebuilds the table if ENGINE is specified](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/alter-table.html). For example:
 
-				```sql
-				mysql> use cand;
-				mysql> ALTER TABLE address ENGINE=INNODB;
-				```
+				1. Run `ALTER TABLE...`	
 				
-				Upon completion of ALTER TABLE, check the table for corruption.
+					```sql
+					mysql> use cand;
+					mysql> ALTER TABLE address ENGINE=INNODB;
+					```
+				
+				1. Upon completion of ALTER TABLE, check the table for corruption.
 
-				```sql
-				mysql> CHECK TABLE cand.address;
-				```
+					```sql
+					mysql> CHECK TABLE cand.address;
+					```
 
 				If the results of CHECK TABLE do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
-				
+			
 				Else...
 
 			1. Restore the table with CREATE .. LIKE and SELECT .. INTO.
@@ -934,18 +937,18 @@
 					mysql> CHECK TABLE cand.address;
 					```
 				
-					If `CHECK TABLE` results do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
+				If `CHECK TABLE` results do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
 					
-					Else...
+				Else...
 
-			1. Restore the database from a dump, and recreate the ibdata and ib_log files.
-				1. Perform a dump of the database, for example as in the code block below. If you have a dump taken previously, skip to "Drop the cand database", below. 
+			1. Restore the databas(es) from a dump
+				1. Perform a dump of all databases, for example as in the code block below. If you have a dump taken previously, skip to "Drop the databases", below. 
 
 					```sh
-					shell> mysqldump -ER cand > ~/recovery_dump_cand.sql
+					shell> mysqldump -AER > ~/recovery_dump.sql
 					```
 				
-				1. Drop the cand database e.g.
+				1. Drop the affected database i.e. "cand" 
 
 					```sql
 					mysql> SET FOREIGN_KEY_CHECKS=0;
@@ -966,13 +969,13 @@
 					shell> sudo mv /var/lib/mysql/ib_log* ~/
 					```
 
-				1. Remove the innodb_force_recover entr(ies) from /etc/my.cnf.
+				1. Remove the innodb_force_recover entry from /etc/my.cnf, e.g.
 
 					```sh
 					shell> sed -i '/innodb_force_recovery/d' /etc/my.cnf
 					```
 				
-				1. Start mysqld and monitor the logs to ensure that it comes online and initializes the data and redo log files.
+				1. Start MySQL Server and monitor the logs to ensure that it comes online and initializes the data and redo log files, e.g.
 
 					```sh
 					 shell> sudo systemctl start mysqld 
@@ -982,7 +985,7 @@
 				1. Restore the dump when you're confident MySQL Server is ready to import.
 
 					```sql
-					shell> mysql < ~/recovery_dump_cand.sql
+					shell> mysql < ~/recovery_dump.sql 
 					```
 				
 				1. Check the table for corruption.
@@ -991,8 +994,8 @@
 					mysql> CHECK TABLE cand.address;
 					```
 				
-					If the results of CHECK TABLE do not indicate corruption, then the table is restored to health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
+					Expect the results of CHECK TABLE to indicate health! Now, try to discover why the corruption occurred. Corruption is very nearly always caused by a hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely).
 
 1. "Secondary index corruption" | 15 minutes
 	1. The problem is: A hardware problem such as bad memory or disks (likely), an administrator error such as manipulating the database files externally to MySQL (likely), or an InnoDB bug (unlikely) corrupted an InnoDB [page](https://dev.mysql.com/doc/internals/en/innodb-page-structure.html) that my be a [secondary index](https://docs.oracle.com/cd/E17952_01/mysql-5.0-en/innodb-index-types.html) of the "city" table of the "world" database. Try to determine why it’s occurring; don’t simply repair the data, or the corruption could recur. 
-	1. Possible solutions to the current data corruption are the same as for clustered index corruption, above.
+	1. Possible solutions to the current data corruption are the same as for "Clustered index corruption", above. __First: back up data and log files (see "Clustered index corruption", above)__. Then, because the corruption is of a secondary index (in contrast to a clustered index), it is likely that the ALTER TABLE solution will repair the index and the more demanding solutions i.e "SELECT .. INTO" or "dump and restore" will be unnecessary. 
