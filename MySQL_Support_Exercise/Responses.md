@@ -942,7 +942,7 @@
 				Else...
 
 			1. Restore the databas(es) from a dump
-				1. Perform a dump of all databases, for example as in the code block below. If you have a dump taken previously, skip to "Drop the databases", below. 
+				1. Perform a dump of all databases, for example as in the code block below. If you have a dump taken previously, skip to "Drop the affected database\.\.\.", below. 
 
 					```sh
 					shell> mysqldump -AER > ~/recovery_dump.sql
